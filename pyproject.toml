@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "avito-personal-mcp"
+version = "0.1.0.dev0"
+description = "Unofficial MCP server for interacting with Avito through a user-controlled authenticated browser session"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+  { name = "AlexButiev" }
+]
+dependencies = [
+  "mcp[cli]>=2,<3",
+  "playwright>=1.54,<2",
+  "pydantic>=2.11,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.4,<9",
+  "pytest-asyncio>=1,<2",
+  "ruff>=0.12,<1",
+]
+
+[project.scripts]
+avito-personal-mcp = "avito_personal_mcp.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/avito_personal_mcp"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
