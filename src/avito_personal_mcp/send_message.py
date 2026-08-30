@@ -111,7 +111,7 @@ async def _current_outgoing_matches(page: Page, text: str) -> int:
     """Count visible outgoing text messages exactly matching ``text``."""
 
     return await page.locator(
-        '[data-marker="message"].message-base-module-right-NSqaR '
+        '[data-marker="message"][class*="message-base-module-right-"] '
         '[data-marker="messageText"]'
     ).evaluate_all(
         """
