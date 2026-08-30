@@ -6,6 +6,7 @@ from mcp.server import MCPServer
 
 from avito_personal_mcp import __version__
 from avito_personal_mcp.browser import connect_to_chrome, find_avito_page, list_open_pages
+from avito_personal_mcp.chats import ChatsDiscoveryError, discover_chats
 from avito_personal_mcp.config import Settings
 from avito_personal_mcp.favorites import FavoritesDiscoveryError, discover_favorites
 from avito_personal_mcp.listing_detail import ListingDetailError, discover_listing_detail
@@ -230,6 +231,44 @@ async def avito_favorites() -> dict[str, object]:
             "status": "ok",
             "count": len(favorites),
             "favorites": favorites,
+        }
+    finally:
+        await session.close()
+
+
+@mcp.tool()
+async def avito_chats() -> dict[str, object]:
+    """Return the authenticated user's visible Avito chat list read-only."""
+
+    settings = Settings.from_env()
+    try:
+        session = await connect_to_chrome(settings)
+    except Exception as exc:
+        return {
+            "status": "chrome_unreachable",
+            "message": f"Could not connect to Chrome CDP: {type(exc).__name__}",
+        }
+
+    try:
+        page = find_avito_page(session, settings.avito_origin)
+        if page is None:
+            return {
+                "status": "no_avito_tab",
+                "message": "No open Avito tab was found in the attached Chrome session.",
+            }
+
+        try:
+            chats = await discover_chats(page, settings.avito_origin)
+        except ChatsDiscoveryError as exc:
+            return {
+                "status": "chats_unavailable",
+                "message": str(exc),
+            }
+
+        return {
+            "status": "ok",
+            "count": len(chats),
+            "chats": chats,
         }
     finally:
         await session.close()
