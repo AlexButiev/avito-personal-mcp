@@ -5,15 +5,15 @@ Unofficial MCP server for interacting with Avito through your own authenticated 
 > [!IMPORTANT]
 > This project is independent and is not affiliated with, endorsed by, or maintained by Avito.
 
-## Goal
+## What it does
 
-Provide a local-first MCP interface for a user's own Avito web session without requiring users to share their Avito password, SMS codes, browser cookies, or other credentials with the MCP client.
+Avito Personal MCP exposes a local-first MCP interface over the user's own Avito web session. The user signs in manually in a dedicated Chrome profile; the MCP server attaches to that browser over Chrome DevTools Protocol (CDP).
 
-The initial implementation is intentionally **read-only**. Write actions will only be considered after the authentication/session layer and read operations are stable, and will require explicit confirmation safeguards.
+The project does **not** ask users to provide Avito passwords, SMS/OTP codes, cookies, authorization headers, session tokens, or exported browser storage state.
 
-## Planned MCP tools
+## Current MCP tools
 
-### Phase 1 — read-only
+Read-only tools:
 
 - `avito_selfcheck`
 - `avito_me`
@@ -24,12 +24,52 @@ The initial implementation is intentionally **read-only**. Write actions will on
 - `avito_chats`
 - `avito_chat_messages`
 
-### Later — guarded write actions
+Guarded write tools:
 
 - `avito_send_message`
-- `avito_add_favorite`
-- `avito_remove_favorite`
-- selected operations for the user's own listings
+
+`avito_send_message` is deliberately two-step. The first call only returns a sanitized preview and a short-lived one-time confirmation token. A second call with the same chat id, the same message text, and that token performs one send attempt. The MCP does not automatically retry a send because a retry could create a duplicate message.
+
+## Requirements
+
+- Python 3.11+
+- Google Chrome or another compatible Chromium browser with CDP support
+- a dedicated browser profile for this project
+- manual Avito authentication by the user
+
+## Installation
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -e '.[dev]'
+```
+
+Run the MCP server over stdio:
+
+```bash
+avito-personal-mcp
+```
+
+## Dedicated Chrome session
+
+Use a separate Chrome profile. Do not reuse a normal browser profile that also contains banking, email, work, or other sensitive accounts.
+
+On macOS:
+
+```bash
+open -na "Google Chrome" --args \
+  --user-data-dir="$HOME/.avito-personal-mcp/chrome-profile" \
+  --remote-debugging-address=127.0.0.1 \
+  --remote-debugging-port=9222 \
+  "https://www.avito.ru"
+```
+
+Then sign in to Avito manually inside that Chrome window.
+
+### CDP security
+
+Keep CDP bound to loopback only (`127.0.0.1`). Do not expose port `9222` to the LAN, Internet, a public tunnel, or an untrusted container/network namespace. A process that can reach the CDP endpoint can potentially control the attached browser session.
 
 ## Architecture
 
@@ -39,52 +79,75 @@ MCP client
     v
 Avito Personal MCP
     |
-    +-- session/auth layer
+    +-- browser/session layer
     +-- profile discovery
     +-- search/listings
     +-- favorites
     +-- chats/messages
-    +-- rate limiting
+    +-- guarded confirmations for writes
     +-- diagnostics
     |
     v
-User-controlled Chrome session (CDP)
+Dedicated user-controlled Chrome session (CDP on loopback)
     |
     v
 avito.ru
 ```
 
-The browser remains under the user's control. Authentication is performed manually by the user in Chrome. The project must not ask users to paste passwords, SMS codes, cookies, or session tokens into configuration files.
+The implementation prefers browser-visible page state and frontend behavior observed in the user's own authenticated session. It does not guess private endpoints and does not attempt to bypass CAPTCHA or anti-bot controls.
 
-## Project status
+## Behavioral caveats
 
-**Pre-alpha / architecture stage.**
+Opening an Avito conversation can cause Avito itself to mark that conversation as read. `avito_chat_messages` does not intentionally send, edit, delete, react to, or otherwise mutate messages, but normal page navigation can still affect read state.
 
-The repository is being initialized. Do not rely on it for production use yet.
+Browser-driven operations are inherently coupled to Avito's current DOM. The project therefore treats unexpected DOM changes as errors rather than silently pretending an empty result is valid.
 
 ## Safety principles
 
 - Local-first authentication/session state.
 - No Avito credentials committed to the repository.
-- No CAPTCHA bypass or anti-bot circumvention.
-- Conservative request rate limiting.
-- Detect and surface authentication expiry, CAPTCHA, HTTP 403 and HTTP 429 instead of trying to evade them.
-- Read-only by default.
-- Explicit confirmation before future state-changing operations.
-- Logs must not contain passwords, cookies, authorization headers, session tokens, or message contents unless explicitly required for local debugging and redacted by default.
+- No CAPTCHA bypass, stealth circumvention, or automated OTP handling.
+- CDP stays on loopback only.
+- Dedicated Chrome profile only; do not use it for unrelated sensitive accounts.
+- Read operations are separated from write operations.
+- Write operations require explicit confirmation safeguards.
+- Message sends are never automatically retried after an irreversible click.
+- Logs/tests must not contain passwords, cookies, authorization headers, session tokens, browser storage state, or real private-message fixtures.
 
 See [SECURITY.md](SECURITY.md) for the security policy.
 
-## Development roadmap
+## Troubleshooting
 
-1. Repository and security foundation.
-2. Chrome/CDP session discovery and diagnostics.
-3. `avito_selfcheck` and `avito_me`.
-4. Public search and listing reads.
-5. User listings and favorites.
-6. Chats and message reads.
-7. Cross-platform packaging and installation documentation.
-8. Guarded write actions only after the read-only foundation is stable.
+### `chrome_unreachable`
+
+Confirm the dedicated Chrome instance is running with `--remote-debugging-address=127.0.0.1 --remote-debugging-port=9222` and that no firewall/container boundary prevents the local MCP process from reaching it.
+
+### `no_avito_tab`
+
+Open `https://www.avito.ru` in the dedicated Chrome window.
+
+### Authentication unavailable / login redirect
+
+Sign in manually in the dedicated Chrome window. Do not paste credentials, cookies, or tokens into MCP configuration.
+
+### DOM mismatch / unavailable data
+
+Avito may have changed its frontend. Fail closed and update selectors only after observing the new browser behavior. Do not guess internal APIs or weaken authentication checks.
+
+## Development
+
+Run local checks:
+
+```bash
+pytest
+ruff check .
+```
+
+GitHub Actions runs sanitized unit tests and Ruff without Avito credentials or a real browser session. Live CDP acceptance is intentionally separate from CI.
+
+## Project status
+
+Pre-alpha. The read-only foundation and first guarded message-send path are working, but browser-driven integrations can break when Avito changes its frontend. Treat the project as experimental until release hardening is complete.
 
 ## License
 
