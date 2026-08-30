@@ -17,6 +17,15 @@ from avito_personal_mcp.listing_detail import ListingDetailError, discover_listi
 from avito_personal_mcp.listings import ListingsDiscoveryError, discover_own_listings
 from avito_personal_mcp.profile import ProfileDiscoveryError, discover_current_profile
 from avito_personal_mcp.search import SearchDiscoveryError, search_avito
+from avito_personal_mcp.send_message import (
+    SendMessageError,
+    consume_confirmation,
+    create_confirmation,
+    sanitized_preview,
+    send_confirmed_message,
+    validate_chat_id,
+    validate_message_text,
+)
 
 mcp = MCPServer("Avito Personal MCP")
 
@@ -325,6 +334,78 @@ async def avito_chat_messages(chat_id: str, limit: int = 50) -> dict[str, object
                 "Avito may mark the conversation as read when the conversation page is opened."
             ),
         }
+    finally:
+        await session.close()
+
+
+@mcp.tool()
+async def avito_send_message(
+    chat_id: str,
+    text: str,
+    confirmation_token: str | None = None,
+) -> dict[str, object]:
+    """Prepare or explicitly confirm one Avito text-message send.
+
+    The first call must omit ``confirmation_token`` and only creates a short-lived
+    confirmation. A second call with the matching one-time token performs exactly
+    one UI send attempt. Opening the conversation may cause Avito to mark it read.
+    """
+
+    try:
+        normalized_chat_id = validate_chat_id(chat_id)
+        normalized_text = validate_message_text(text)
+    except SendMessageError as exc:
+        return {"status": "invalid_request", "message": str(exc)}
+
+    if confirmation_token is None:
+        token, ttl = create_confirmation(normalized_chat_id, normalized_text)
+        return {
+            "status": "confirmation_required",
+            "chat_id": normalized_chat_id,
+            "preview": sanitized_preview(normalized_text),
+            "confirmation_token": token,
+            "expires_in_seconds": ttl,
+            "message": (
+                "No message was sent. Call avito_send_message again with the same chat_id and "
+                "text plus this confirmation_token to perform one send attempt."
+            ),
+        }
+
+    try:
+        consume_confirmation(
+            confirmation_token,
+            normalized_chat_id,
+            normalized_text,
+        )
+    except SendMessageError as exc:
+        return {"status": "confirmation_invalid", "message": str(exc)}
+
+    settings = Settings.from_env()
+    try:
+        session = await connect_to_chrome(settings)
+    except Exception as exc:
+        return {
+            "status": "chrome_unreachable",
+            "message": f"Could not connect to Chrome CDP: {type(exc).__name__}",
+        }
+
+    try:
+        page = find_avito_page(session, settings.avito_origin)
+        if page is None:
+            return {
+                "status": "no_avito_tab",
+                "message": "No open Avito tab was found in the attached Chrome session.",
+            }
+
+        try:
+            return await send_confirmed_message(
+                page,
+                settings.avito_origin,
+                normalized_chat_id,
+                normalized_text,
+            )
+        except SendMessageError as exc:
+            return {"status": "send_failed", "message": str(exc)}
     finally:
         await session.close()
 
