@@ -7,13 +7,11 @@ in the authenticated browser session and avoids brittle CSS class names.
 
 from __future__ import annotations
 
-import re
 from typing import Any
 from urllib.parse import urljoin
 
 from playwright.async_api import Page
 
-ITEM_MARKER_RE = re.compile(r"^item-snippet/(\d+)$")
 PROFILE_PATH = "/profile"
 
 
@@ -67,7 +65,7 @@ async def discover_own_listings(page: Page, origin: str) -> list[dict[str, Any]]
     await page.wait_for_timeout(1000)
 
     raw_items = await page.evaluate(
-        """
+        r"""
         () => {
             const cards = [...document.querySelectorAll('[data-marker^="item-snippet/"]')];
 
@@ -81,22 +79,35 @@ async def discover_own_listings(page: Page, origin: str) -> list[dict[str, Any]]
                         return href && !href.startsWith('/profile/');
                     });
 
-                const primaryLink = listingLinks[0] || null;
-                const title = primaryLink
-                    ? (primaryLink.getAttribute('title') || primaryLink.textContent || null)
-                    : null;
+                const primaryLink = listingLinks.find(a => {
+                    const text = (a.textContent || '').trim();
+                    const title = (a.getAttribute('title') || '').trim();
+                    return text || title;
+                }) || listingLinks[0] || null;
 
-                const textNodes = [...card.querySelectorAll('*')]
-                    .map(el => (el.textContent || '').trim())
-                    .filter(Boolean);
+                let title = null;
+                for (const link of listingLinks) {
+                    const candidate = (
+                        link.getAttribute('title') ||
+                        link.getAttribute('aria-label') ||
+                        link.textContent ||
+                        ''
+                    ).trim();
+                    if (candidate) {
+                        title = candidate;
+                        break;
+                    }
+                }
 
-                const price = textNodes.find(text => /(?:₽|руб\.?)/i.test(text)) || null;
+                const cardText = (card.innerText || card.textContent || '').replace(/\s+/g, ' ').trim();
+                const priceMatch = cardText.match(/(?:^|\s)(\d[\d\s\u00a0]*\s?(?:₽|руб\.?))(?:\s|$)/i);
+                const price = priceMatch ? priceMatch[1].replace(/\s+/g, ' ').trim() : null;
 
                 let state = null;
-                if (card.querySelector('[data-marker="item-info-row_error"]')) {
-                    state = 'attention_required';
-                } else if (card.querySelector(`[data-marker="publish-button/${id}"]`)) {
+                if (card.querySelector(`[data-marker="publish-button/${id}"]`)) {
                     state = 'inactive';
+                } else if (card.querySelector('[data-marker="item-info-row_error"]')) {
+                    state = 'attention_required';
                 }
 
                 return {
