@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from playwright.async_api import Browser, Page, Playwright, async_playwright
 
 from .config import Settings
+from .navigation import is_same_origin
 
 
 @dataclass(slots=True)
@@ -38,11 +39,11 @@ async def connect_to_chrome(settings: Settings) -> ChromeSession:
 
 
 def find_avito_page(session: ChromeSession, origin: str) -> Page | None:
-    """Return the first open page belonging to the configured Avito origin."""
+    """Return the first open page belonging exactly to the configured Avito origin."""
 
     for context in session.browser.contexts:
         for page in context.pages:
-            if page.url.startswith(origin):
+            if is_same_origin(page.url, origin):
                 return page
     return None
 
