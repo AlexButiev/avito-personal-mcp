@@ -5,7 +5,8 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import urljoin
 
-from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
+from playwright.async_api import Page
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 
 class SearchDiscoveryError(RuntimeError):
