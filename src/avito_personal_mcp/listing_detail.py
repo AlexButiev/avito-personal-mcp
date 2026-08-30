@@ -58,7 +58,9 @@ async def resolve_listing_url(page: Page, origin: str, reference: int | str) -> 
             try:
                 safe_url = canonical_same_origin_url(listing["url"], origin)
             except ValueError as exc:
-                raise ListingDetailError("Resolved listing URL is outside the Avito origin") from exc
+                raise ListingDetailError(
+                    "Resolved listing URL is outside the Avito origin"
+                ) from exc
             return listing_id, safe_url
 
     raise ListingDetailError("Listing id was not found among the authenticated user's listings")
