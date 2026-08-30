@@ -6,6 +6,10 @@ from mcp.server import MCPServer
 
 from avito_personal_mcp import __version__
 from avito_personal_mcp.browser import connect_to_chrome, find_avito_page, list_open_pages
+from avito_personal_mcp.chat_messages import (
+    ChatMessagesDiscoveryError,
+    discover_chat_messages,
+)
 from avito_personal_mcp.chats import ChatsDiscoveryError, discover_chats
 from avito_personal_mcp.config import Settings
 from avito_personal_mcp.favorites import FavoritesDiscoveryError, discover_favorites
@@ -269,6 +273,57 @@ async def avito_chats() -> dict[str, object]:
             "status": "ok",
             "count": len(chats),
             "chats": chats,
+        }
+    finally:
+        await session.close()
+
+
+@mcp.tool()
+async def avito_chat_messages(chat_id: str, limit: int = 50) -> dict[str, object]:
+    """Return recent visible messages from one Avito conversation read-only.
+
+    Avito may mark a conversation as read when its page is opened. This tool does
+    not send, edit, delete, react to, or otherwise intentionally mutate messages.
+    """
+
+    settings = Settings.from_env()
+    try:
+        session = await connect_to_chrome(settings)
+    except Exception as exc:
+        return {
+            "status": "chrome_unreachable",
+            "message": f"Could not connect to Chrome CDP: {type(exc).__name__}",
+        }
+
+    try:
+        page = find_avito_page(session, settings.avito_origin)
+        if page is None:
+            return {
+                "status": "no_avito_tab",
+                "message": "No open Avito tab was found in the attached Chrome session.",
+            }
+
+        try:
+            messages = await discover_chat_messages(
+                page,
+                settings.avito_origin,
+                chat_id,
+                limit,
+            )
+        except ChatMessagesDiscoveryError as exc:
+            return {
+                "status": "chat_messages_unavailable",
+                "message": str(exc),
+            }
+
+        return {
+            "status": "ok",
+            "chat_id": chat_id,
+            "count": len(messages),
+            "messages": messages,
+            "read_state_note": (
+                "Avito may mark the conversation as read when the conversation page is opened."
+            ),
         }
     finally:
         await session.close()
