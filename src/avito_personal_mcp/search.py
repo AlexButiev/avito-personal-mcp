@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 from urllib.parse import urljoin
 
@@ -13,16 +14,22 @@ class SearchDiscoveryError(RuntimeError):
     """Raised when Avito search results cannot be resolved or parsed safely."""
 
 
+LISTING_ID_RE = re.compile(r"_(\d+)(?:\?|$)")
+
+
 def normalize_search_result(raw: dict[str, Any], origin: str) -> dict[str, Any]:
     """Normalize one search-result card collected from observed stable DOM markers."""
-
-    listing_id = raw.get("id")
-    if not isinstance(listing_id, str) or not listing_id.isdigit():
-        raise SearchDiscoveryError("Search result has no valid numeric id")
 
     href = raw.get("href")
     if not isinstance(href, str) or not href:
         raise SearchDiscoveryError("Search result has no listing URL")
+
+    listing_id = raw.get("id")
+    if not isinstance(listing_id, str) or not listing_id.isdigit():
+        match = LISTING_ID_RE.search(href)
+        if not match:
+            raise SearchDiscoveryError("Search result has no valid numeric id")
+        listing_id = match.group(1)
 
     def clean(name: str) -> str | None:
         value = raw.get(name)
@@ -106,23 +113,38 @@ async def search_avito(
                 return { hasSerp: false, items: [] };
             }
 
-            const cards = [...root.querySelectorAll('[data-marker^="iva-item/"]')];
-
             const text = (card, marker) => {
-                const el = card.querySelector(`[data-marker="${marker}"]`);
+                const el = card?.querySelector(`[data-marker="${marker}"]`);
                 return el ? (el.textContent || '').trim() || null : null;
             };
 
-            const items = cards.slice(0, limit).map(card => {
-                const marker = card.getAttribute('data-marker') || '';
-                const id = marker.split('/')[1] || null;
-                const titleEl = card.querySelector('[data-marker="item-title"]');
-                const link = titleEl?.closest('a[href]') || card.querySelector('a[href]');
+            const findCard = (titleEl) => {
+                let el = titleEl.parentElement;
+                for (let depth = 0; el && depth < 12; depth++, el = el.parentElement) {
+                    if (el.matches?.('[data-marker="item"]')) {
+                        return el;
+                    }
+                    if (
+                        el.querySelector?.('[data-marker="item-price"]') ||
+                        el.querySelector?.('[data-marker="item-price-value"]') ||
+                        el.querySelector?.('[data-marker="item-location"]') ||
+                        el.querySelector?.('[data-marker="item-date"]')
+                    ) {
+                        return el;
+                    }
+                }
+                return titleEl.parentElement;
+            };
+
+            const titles = [...root.querySelectorAll('[data-marker="item-title"]')];
+            const items = titles.slice(0, limit).map(titleEl => {
+                const card = findCard(titleEl);
+                const href = titleEl.getAttribute('href');
 
                 return {
-                    id,
-                    href: link ? link.getAttribute('href') : null,
-                    title: text(card, 'item-title'),
+                    id: null,
+                    href,
+                    title: (titleEl.textContent || '').trim() || null,
                     price: text(card, 'item-price-value') || text(card, 'item-price'),
                     location: text(card, 'item-location'),
                     date: text(card, 'item-date'),
