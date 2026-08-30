@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+from types import SimpleNamespace
 
 import pytest
 
-from avito_personal_mcp.browser import BrowserAccessGate
+from avito_personal_mcp import browser as browser_module
+from avito_personal_mcp.browser import BrowserAccessGate, connect_to_chrome
 
 
 def test_browser_access_gate_rejects_negative_interval() -> None:
@@ -77,3 +79,35 @@ def test_browser_access_gate_rejects_double_release() -> None:
 
     with pytest.raises(RuntimeError, match="not acquired"):
         gate.release()
+
+
+@pytest.mark.asyncio
+async def test_connect_failure_releases_gate_even_if_playwright_stop_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    gate = BrowserAccessGate(0)
+
+    class FakeChromium:
+        async def connect_over_cdp(self, cdp_url: str) -> None:
+            raise RuntimeError("connect failed")
+
+    class FakePlaywright:
+        chromium = FakeChromium()
+
+        async def stop(self) -> None:
+            raise RuntimeError("stop failed")
+
+    class FakeStarter:
+        async def start(self) -> FakePlaywright:
+            return FakePlaywright()
+
+    monkeypatch.setattr(browser_module, "_BROWSER_ACCESS", gate)
+    monkeypatch.setattr(browser_module, "async_playwright", lambda: FakeStarter())
+
+    settings = SimpleNamespace(cdp_url="http://127.0.0.1:9222")
+
+    with pytest.raises(RuntimeError, match="stop failed"):
+        await connect_to_chrome(settings)  # type: ignore[arg-type]
+
+    await gate.acquire()
+    gate.release()

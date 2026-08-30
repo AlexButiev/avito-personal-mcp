@@ -84,9 +84,11 @@ async def connect_to_chrome(settings: Settings) -> ChromeSession:
         playwright = await async_playwright().start()
         browser = await playwright.chromium.connect_over_cdp(settings.cdp_url)
     except BaseException:
-        if playwright is not None:
-            await playwright.stop()
-        _BROWSER_ACCESS.release()
+        try:
+            if playwright is not None:
+                await playwright.stop()
+        finally:
+            _BROWSER_ACCESS.release()
         raise
     return ChromeSession(
         playwright=playwright,
