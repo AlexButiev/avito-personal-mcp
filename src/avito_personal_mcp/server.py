@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from mcp.server import MCPServer
 
-from . import __version__
-from .browser import list_open_pages
-from .config import Settings
+from avito_personal_mcp import __version__
+from avito_personal_mcp.browser import list_open_pages
+from avito_personal_mcp.config import Settings
 
 mcp = MCPServer("Avito Personal MCP")
 
