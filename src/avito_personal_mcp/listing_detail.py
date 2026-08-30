@@ -65,30 +65,19 @@ def normalize_detail(raw: dict[str, Any], listing_id: int, url: str) -> dict[str
         value = " ".join(value.split())
         return value or None
 
-    raw_params = raw.get("params")
-    if not isinstance(raw_params, list):
-        raw_params = []
+    params = raw.get("params")
+    if not isinstance(params, list):
+        params = []
 
-    params: list[str] = []
-    for value in raw_params:
-        if not isinstance(value, str) or not value.strip():
+    normalized_params: list[str] = []
+    for item in params:
+        if not isinstance(item, str):
             continue
-        normalized = " ".join(value.split())
-        if normalized in params:
+        value = " ".join(item.split())
+        if not value or value.endswith(":"):
             continue
-        params.append(normalized)
-
-    # Avito's parameter block may expose both the complete row (for example
-    # ``State: Used``) and a nested label node (``State:``). Keep only the
-    # complete value when both are present.
-    params = [
-        value
-        for value in params
-        if not (
-            value.endswith(":")
-            and any(other != value and other.startswith(f"{value} ") for other in params)
-        )
-    ]
+        if value not in normalized_params:
+            normalized_params.append(value)
 
     state = "inactive" if raw.get("expired") or raw.get("can_activate") else "active_or_unknown"
 
@@ -98,7 +87,7 @@ def normalize_detail(raw: dict[str, Any], listing_id: int, url: str) -> dict[str
         "title": clean("title"),
         "price": clean("price"),
         "description": clean("description"),
-        "params": params,
+        "params": normalized_params,
         "seller_name": clean("seller_name"),
         "state": state,
     }
@@ -136,6 +125,11 @@ async def discover_listing_detail(
                     .filter(value => value.length <= 300)
                 : [];
 
+            const titleMarker = [
+                '[data-marker="item-view/title-info"]',
+                '[data-marker="item-view-seller/title-info"]'
+            ].join(', ');
+
             return {
                 title: text('[data-marker="item-view/title-info"]')
                     || text('[data-marker="item-view-seller/title-info"]'),
@@ -144,9 +138,13 @@ async def discover_listing_detail(
                 description: text('[data-marker="item-view/item-description"]'),
                 params,
                 seller_name: text('[data-marker="seller-info/name"]'),
-                expired: Boolean(document.querySelector('[data-marker="expired-item-note"]')),
-                can_activate: Boolean(document.querySelector('[data-marker="activate-item-button"]')),
-                has_title_marker: Boolean(document.querySelector('[data-marker="item-view/title-info"], [data-marker="item-view-seller/title-info"]')),
+                expired: Boolean(
+                    document.querySelector('[data-marker="expired-item-note"]')
+                ),
+                can_activate: Boolean(
+                    document.querySelector('[data-marker="activate-item-button"]')
+                ),
+                has_title_marker: Boolean(document.querySelector(titleMarker)),
             };
         }
         """
@@ -155,6 +153,8 @@ async def discover_listing_detail(
     if not isinstance(raw, dict):
         raise ListingDetailError("Avito listing page returned an unexpected DOM result")
     if not raw.get("has_title_marker"):
-        raise ListingDetailError("Avito listing page structure did not match the observed listing DOM")
+        raise ListingDetailError(
+            "Avito listing page structure did not match the observed listing DOM"
+        )
 
     return normalize_detail(raw, listing_id, url)
