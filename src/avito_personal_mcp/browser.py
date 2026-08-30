@@ -8,8 +8,8 @@ directly, or export cookies/session state.
 from __future__ import annotations
 
 import asyncio
-import time
 from dataclasses import dataclass, field
+from time import monotonic
 
 from playwright.async_api import Browser, Page, Playwright, async_playwright
 
@@ -32,12 +32,12 @@ class BrowserAccessGate:
 
         await self._lock.acquire()
         try:
-            now = time.monotonic()
+            now = monotonic()
             if self._last_started_at is not None:
                 delay = self.min_interval_seconds - (now - self._last_started_at)
                 if delay > 0:
                     await asyncio.sleep(delay)
-            self._last_started_at = time.monotonic()
+            self._last_started_at = monotonic()
         except BaseException:
             self._lock.release()
             raise
