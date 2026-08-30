@@ -10,6 +10,7 @@ from avito_personal_mcp.config import Settings
 from avito_personal_mcp.listing_detail import ListingDetailError, discover_listing_detail
 from avito_personal_mcp.listings import ListingsDiscoveryError, discover_own_listings
 from avito_personal_mcp.profile import ProfileDiscoveryError, discover_current_profile
+from avito_personal_mcp.search import SearchDiscoveryError, search_avito
 
 mcp = MCPServer("Avito Personal MCP")
 
@@ -151,6 +152,45 @@ async def avito_get_listing(reference: int | str) -> dict[str, object]:
         return {
             "status": "ok",
             "listing": listing,
+        }
+    finally:
+        await session.close()
+
+
+@mcp.tool()
+async def avito_search(query: str, limit: int = 10) -> dict[str, object]:
+    """Search Avito read-only through the normal rendered search-results page."""
+
+    settings = Settings.from_env()
+    try:
+        session = await connect_to_chrome(settings)
+    except Exception as exc:
+        return {
+            "status": "chrome_unreachable",
+            "message": f"Could not connect to Chrome CDP: {type(exc).__name__}",
+        }
+
+    try:
+        page = find_avito_page(session, settings.avito_origin)
+        if page is None:
+            return {
+                "status": "no_avito_tab",
+                "message": "No open Avito tab was found in the attached Chrome session.",
+            }
+
+        try:
+            results = await search_avito(page, settings.avito_origin, query, limit)
+        except SearchDiscoveryError as exc:
+            return {
+                "status": "search_unavailable",
+                "message": str(exc),
+            }
+
+        return {
+            "status": "ok",
+            "query": query,
+            "count": len(results),
+            "results": results,
         }
     finally:
         await session.close()
