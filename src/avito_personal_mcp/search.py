@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import urljoin
 
-from playwright.async_api import Page
+from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
 
 
 class SearchDiscoveryError(RuntimeError):
@@ -46,11 +46,13 @@ async def _submit_search_form(page: Page, origin: str, query: str) -> None:
 
     input_selector = '[data-marker="search-form/suggest/input"]'
     submit_selector = '[data-marker="search-form/submit-button"]'
+    serp_selector = '[data-marker="catalog-serp"]'
 
-    if not await page.locator(input_selector).count():
-        response = await page.goto(origin, wait_until="domcontentloaded")
-        if response is not None and response.status >= 400:
-            raise SearchDiscoveryError(f"Avito home page returned HTTP {response.status}")
+    # Start from Avito's normal home page so the search is not accidentally
+    # scoped to whichever listing/category tab happened to be selected by CDP.
+    response = await page.goto(origin, wait_until="domcontentloaded")
+    if response is not None and response.status >= 400:
+        raise SearchDiscoveryError(f"Avito home page returned HTTP {response.status}")
 
     search_input = page.locator(input_selector).first
     submit_button = page.locator(submit_selector).first
@@ -58,9 +60,27 @@ async def _submit_search_form(page: Page, origin: str, query: str) -> None:
         raise SearchDiscoveryError("Avito search form did not match the observed page structure")
 
     await search_input.fill(query)
+    before_url = page.url
     await submit_button.click()
-    await page.wait_for_load_state("domcontentloaded")
-    await page.wait_for_timeout(1000)
+
+    # Avito may perform the transition through client-side routing. Waiting for
+    # the current page's already-reached load state is insufficient; wait for
+    # the actual URL transition and then for the observed SERP root.
+    try:
+        await page.wait_for_url(lambda url: str(url) != before_url, timeout=10_000)
+    except PlaywrightTimeoutError:
+        # A same-URL refresh is possible; the SERP marker below remains the
+        # source of truth for whether search really completed.
+        pass
+
+    try:
+        await page.locator(serp_selector).wait_for(state="attached", timeout=10_000)
+    except PlaywrightTimeoutError as exc:
+        raise SearchDiscoveryError(
+            "Avito search did not reach the observed search-results page"
+        ) from exc
+
+    await page.wait_for_timeout(500)
 
 
 async def search_avito(
