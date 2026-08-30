@@ -34,3 +34,25 @@ jobs:
 
       - name: Pytest
         run: pytest
+
+  release-smoke:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - name: Install package as an end user
+        run: python -m pip install --upgrade pip && python -m pip install .
+
+      - name: Verify installed version and console entry point
+        run: |
+          python -c "import importlib.metadata; assert importlib.metadata.version('avito-personal-mcp') == '0.1.0rc1'"
+          python -c "from avito_personal_mcp.server import main; assert callable(main)"
+          command -v avito-personal-mcp
