@@ -9,7 +9,10 @@ from urllib.parse import urlparse
 from playwright.async_api import Page
 
 from avito_personal_mcp.listings import discover_own_listings
-from avito_personal_mcp.navigation import canonical_same_origin_url
+from avito_personal_mcp.navigation import (
+    canonical_same_origin_url,
+    has_authenticated_marker,
+)
 
 LISTING_ID_RE = re.compile(r"(?:^|_)(\d{4,})(?:$|[/?#])")
 
@@ -118,6 +121,11 @@ async def discover_listing_detail(
             raise ListingDetailError(f"Listing page returned HTTP {response.status}")
 
     await page.wait_for_timeout(750)
+
+    if not await has_authenticated_marker(page):
+        raise ListingDetailError(
+            "Avito authentication is unavailable or the browser session has expired"
+        )
 
     raw = await page.evaluate(
         """
