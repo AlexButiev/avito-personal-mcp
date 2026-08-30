@@ -54,6 +54,7 @@ async def _submit_search_form(page: Page, origin: str, query: str) -> None:
 
     input_selector = '[data-marker="search-form/suggest/input"]'
     serp_selector = '[data-marker="catalog-serp"]'
+    title_selector = '[data-marker="item-title"]'
 
     # Start from Avito's normal home page so the search is not accidentally
     # scoped to whichever listing/category tab happened to be selected by CDP.
@@ -69,8 +70,8 @@ async def _submit_search_form(page: Page, origin: str, query: str) -> None:
     before_url = page.url
 
     # Live reconnaissance showed that pressing Enter in the observed search
-    # input reliably triggers Avito's normal search flow. The page may first
-    # visit a short-lived intermediate URL before rendering the final SERP.
+    # input reliably triggers Avito's normal search flow. The page briefly
+    # passes through an intermediate blank DOM before the final SERP hydrates.
     await search_input.press("Enter")
 
     try:
@@ -78,15 +79,23 @@ async def _submit_search_form(page: Page, origin: str, query: str) -> None:
     except PlaywrightTimeoutError:
         pass
 
-    try:
-        await page.locator(serp_selector).wait_for(state="attached", timeout=15_000)
-    except PlaywrightTimeoutError as exc:
-        raise SearchDiscoveryError(
-            "Avito search did not reach the observed search-results page"
-        ) from exc
+    # A locator wait proved unreliable across Avito's intermediate client-side
+    # navigation. Poll the live document instead and require both the SERP root
+    # and at least one real listing title before parsing.
+    for _ in range(30):
+        try:
+            has_serp = await page.locator(serp_selector).count() > 0
+            has_titles = await page.locator(title_selector).count() > 0
+        except Exception:
+            has_serp = False
+            has_titles = False
 
-    # Give client-side hydration a short moment so item cards are populated.
-    await page.wait_for_timeout(750)
+        if has_serp and has_titles:
+            return
+
+        await page.wait_for_timeout(500)
+
+    raise SearchDiscoveryError("Avito search did not reach the observed search-results page")
 
 
 async def search_avito(
