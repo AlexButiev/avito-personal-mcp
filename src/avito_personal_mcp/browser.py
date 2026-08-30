@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from playwright.async_api import Browser, Playwright, async_playwright
+from playwright.async_api import Browser, Page, Playwright, async_playwright
 
 from .config import Settings
 
@@ -20,7 +20,8 @@ class ChromeSession:
     browser: Browser
 
     async def close(self) -> None:
-        await self.browser.close()
+        """Disconnect Playwright without intentionally terminating user Chrome."""
+
         await self.playwright.stop()
 
 
@@ -34,6 +35,16 @@ async def connect_to_chrome(settings: Settings) -> ChromeSession:
         await playwright.stop()
         raise
     return ChromeSession(playwright=playwright, browser=browser)
+
+
+def find_avito_page(session: ChromeSession, origin: str) -> Page | None:
+    """Return the first open page belonging to the configured Avito origin."""
+
+    for context in session.browser.contexts:
+        for page in context.pages:
+            if page.url.startswith(origin):
+                return page
+    return None
 
 
 async def list_open_pages(settings: Settings) -> list[dict[str, str]]:
