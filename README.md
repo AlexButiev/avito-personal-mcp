@@ -32,17 +32,22 @@ Guarded write tools:
 
 ## Requirements
 
-- Python 3.11+
+- Python 3.11, 3.12, 3.13, or 3.14
 - Google Chrome or another compatible Chromium browser with CDP support
 - a dedicated browser profile for this project
 - manual Avito authentication by the user
 
 ## Installation
 
+Clone the repository and install the package into a virtual environment:
+
 ```bash
-python -m venv .venv
+git clone https://github.com/AlexButiev/avito-personal-mcp.git
+cd avito-personal-mcp
+python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -e '.[dev]'
+python -m pip install --upgrade pip
+python -m pip install .
 ```
 
 Run the MCP server over stdio:
@@ -50,6 +55,8 @@ Run the MCP server over stdio:
 ```bash
 avito-personal-mcp
 ```
+
+The console entry point is installed by the package and does not require a repository-local `PYTHONPATH`.
 
 ## Dedicated Chrome session
 
@@ -65,11 +72,29 @@ open -na "Google Chrome" --args \
   "https://www.avito.ru"
 ```
 
-Then sign in to Avito manually inside that Chrome window.
+Then sign in to Avito manually inside that Chrome window. Do not put Avito credentials, cookies, tokens, or browser storage in MCP client configuration.
 
 ### CDP security
 
 Keep CDP bound to loopback only (`127.0.0.1`). Do not expose port `9222` to the LAN, Internet, a public tunnel, or an untrusted container/network namespace. A process that can reach the CDP endpoint can potentially control the attached browser session.
+
+## MCP client configuration
+
+The server uses stdio. A generic MCP client configuration looks like this:
+
+```json
+{
+  "mcpServers": {
+    "avito": {
+      "command": "/absolute/path/to/.venv/bin/avito-personal-mcp"
+    }
+  }
+}
+```
+
+Use the actual absolute path to the installed console script on your machine. No Avito credentials or session material belong in this configuration.
+
+Chrome and the MCP server are separate processes: start the dedicated Chrome session first, sign in manually if needed, then let the MCP client launch `avito-personal-mcp`.
 
 ## Architecture
 
@@ -136,6 +161,12 @@ Avito may have changed its frontend. Fail closed and update selectors only after
 
 ## Development
 
+Install development dependencies:
+
+```bash
+python -m pip install -e '.[dev]'
+```
+
 Run local checks:
 
 ```bash
@@ -143,11 +174,13 @@ pytest
 ruff check .
 ```
 
-GitHub Actions runs sanitized unit tests and Ruff without Avito credentials or a real browser session. Live CDP acceptance is intentionally separate from CI.
+GitHub Actions runs sanitized unit tests and Ruff on Python 3.11, 3.12, 3.13, and 3.14 without Avito credentials or a real browser session. Live CDP acceptance is intentionally separate from CI.
 
 ## Project status
 
-Pre-alpha. The read-only foundation and first guarded message-send path are working, but browser-driven integrations can break when Avito changes its frontend. Treat the project as experimental until release hardening is complete.
+`0.1.0rc1` is the first public release candidate. The read-only foundation and guarded message-send path are implemented, but browser-driven integrations can break when Avito changes its frontend. Treat the release candidate as experimental until the final release is promoted.
+
+See [CHANGELOG.md](CHANGELOG.md) for release notes.
 
 ## License
 
