@@ -17,6 +17,10 @@ AUTHENTICATED_MARKERS = (
 )
 
 
+class PrivatePageStateError(RuntimeError):
+    """Raised when an authenticated Avito page is unavailable or structurally unexpected."""
+
+
 def normalize_origin(origin: str) -> str:
     """Return a canonical ``scheme://host[:port]`` origin."""
 
@@ -55,6 +59,35 @@ def canonical_same_origin_url(url: str, origin: str) -> str:
 
     parsed = urlparse(url.strip())
     return f"{normalize_origin(origin)}{parsed.path or '/'}"
+
+
+def validate_private_page_state(
+    *,
+    pathname: object,
+    expected_path_prefix: str,
+    authenticated: bool,
+    has_expected_structure: bool,
+) -> None:
+    """Validate a private-page snapshot without reading authentication secrets.
+
+    ``authenticated`` is derived only from previously observed DOM markers such as
+    ``header/menu-profile``. ``has_expected_structure`` must be derived from markers
+    specific to the target page. A legitimate empty collection is therefore allowed
+    only when the surrounding private page structure is still present.
+    """
+
+    if not isinstance(pathname, str) or not pathname.startswith(expected_path_prefix):
+        raise PrivatePageStateError(
+            "Avito private page is unavailable or navigation left the expected path"
+        )
+    if not authenticated:
+        raise PrivatePageStateError(
+            "Avito authentication is unavailable or the browser session has expired"
+        )
+    if not has_expected_structure:
+        raise PrivatePageStateError(
+            "Avito private page structure did not match the observed DOM"
+        )
 
 
 async def has_authenticated_marker(page: Page) -> bool:
