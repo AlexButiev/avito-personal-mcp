@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
-from urllib.parse import urlencode, urljoin
+from urllib.parse import urljoin
 
 from playwright.async_api import Page
 
@@ -41,6 +41,28 @@ def normalize_search_result(raw: dict[str, Any], origin: str) -> dict[str, Any]:
     }
 
 
+async def _submit_search_form(page: Page, origin: str, query: str) -> None:
+    """Submit Avito's observed normal search form instead of guessing search URLs."""
+
+    input_selector = '[data-marker="search-form/suggest/input"]'
+    submit_selector = '[data-marker="search-form/submit-button"]'
+
+    if not await page.locator(input_selector).count():
+        response = await page.goto(origin, wait_until="domcontentloaded")
+        if response is not None and response.status >= 400:
+            raise SearchDiscoveryError(f"Avito home page returned HTTP {response.status}")
+
+    search_input = page.locator(input_selector).first
+    submit_button = page.locator(submit_selector).first
+    if not await search_input.count() or not await submit_button.count():
+        raise SearchDiscoveryError("Avito search form did not match the observed page structure")
+
+    await search_input.fill(query)
+    await submit_button.click()
+    await page.wait_for_load_state("domcontentloaded")
+    await page.wait_for_timeout(1000)
+
+
 async def search_avito(
     page: Page,
     origin: str,
@@ -55,12 +77,7 @@ async def search_avito(
     if not 1 <= limit <= 50:
         raise SearchDiscoveryError("Search limit must be between 1 and 50")
 
-    search_url = f"{origin}/rossiya?{urlencode({'q': query})}"
-    response = await page.goto(search_url, wait_until="domcontentloaded")
-    if response is not None and response.status >= 400:
-        raise SearchDiscoveryError(f"Avito search page returned HTTP {response.status}")
-
-    await page.wait_for_timeout(1000)
+    await _submit_search_form(page, origin, query)
 
     raw = await page.evaluate(
         r"""
@@ -103,7 +120,9 @@ async def search_avito(
     if not isinstance(raw, dict):
         raise SearchDiscoveryError("Avito search page returned an unexpected DOM result")
     if raw.get("hasSerp") is not True:
-        raise SearchDiscoveryError("Avito search page structure did not match the observed SERP DOM")
+        raise SearchDiscoveryError(
+            "Avito search page structure did not match the observed SERP DOM"
+        )
 
     items = raw.get("items")
     if not isinstance(items, list):
