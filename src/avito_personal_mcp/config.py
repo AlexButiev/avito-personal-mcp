@@ -5,6 +5,9 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
+DEFAULT_CDP_URL = "http://127.0.0.1:9222"
+DEFAULT_AVITO_ORIGIN = "https://www.avito.ru"
+
 
 @dataclass(frozen=True, slots=True)
 class Settings:
@@ -14,12 +17,12 @@ class Settings:
     user-controlled Chrome session.
     """
 
-    cdp_url: str = "http://127.0.0.1:9222"
-    avito_origin: str = "https://www.avito.ru"
+    cdp_url: str = DEFAULT_CDP_URL
+    avito_origin: str = DEFAULT_AVITO_ORIGIN
 
     @classmethod
     def from_env(cls) -> "Settings":
         return cls(
-            cdp_url=os.getenv("AVITO_MCP_CDP_URL", cls.cdp_url),
-            avito_origin=os.getenv("AVITO_MCP_ORIGIN", cls.avito_origin),
+            cdp_url=os.getenv("AVITO_MCP_CDP_URL", DEFAULT_CDP_URL),
+            avito_origin=os.getenv("AVITO_MCP_ORIGIN", DEFAULT_AVITO_ORIGIN),
         )
