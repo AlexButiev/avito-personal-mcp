@@ -1,6 +1,6 @@
 [build-system]
-requires = ["hatchling>=1.25"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=80"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "avito-personal-mcp"
@@ -28,8 +28,12 @@ dev = [
 [project.scripts]
 avito-personal-mcp = "avito_personal_mcp.server:main"
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/avito_personal_mcp"]
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["avito_personal_mcp*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
