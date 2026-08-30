@@ -46,7 +46,6 @@ async def _submit_search_form(page: Page, origin: str, query: str) -> None:
     """Submit Avito's observed normal search form instead of guessing search URLs."""
 
     input_selector = '[data-marker="search-form/suggest/input"]'
-    submit_selector = '[data-marker="search-form/submit-button"]'
     serp_selector = '[data-marker="catalog-serp"]'
 
     # Start from Avito's normal home page so the search is not accidentally
@@ -56,32 +55,31 @@ async def _submit_search_form(page: Page, origin: str, query: str) -> None:
         raise SearchDiscoveryError(f"Avito home page returned HTTP {response.status}")
 
     search_input = page.locator(input_selector).first
-    submit_button = page.locator(submit_selector).first
-    if not await search_input.count() or not await submit_button.count():
+    if not await search_input.count():
         raise SearchDiscoveryError("Avito search form did not match the observed page structure")
 
     await search_input.fill(query)
     before_url = page.url
-    await submit_button.click()
 
-    # Avito may perform the transition through client-side routing. Waiting for
-    # the current page's already-reached load state is insufficient; wait for
-    # the actual URL transition and then for the observed SERP root.
+    # Live reconnaissance showed that pressing Enter in the observed search
+    # input reliably triggers Avito's normal search flow. The page may first
+    # visit a short-lived intermediate URL before rendering the final SERP.
+    await search_input.press("Enter")
+
     try:
         await page.wait_for_url(lambda url: str(url) != before_url, timeout=10_000)
     except PlaywrightTimeoutError:
-        # A same-URL refresh is possible; the SERP marker below remains the
-        # source of truth for whether search really completed.
         pass
 
     try:
-        await page.locator(serp_selector).wait_for(state="attached", timeout=10_000)
+        await page.locator(serp_selector).wait_for(state="attached", timeout=15_000)
     except PlaywrightTimeoutError as exc:
         raise SearchDiscoveryError(
             "Avito search did not reach the observed search-results page"
         ) from exc
 
-    await page.wait_for_timeout(500)
+    # Give client-side hydration a short moment so item cards are populated.
+    await page.wait_for_timeout(750)
 
 
 async def search_avito(
