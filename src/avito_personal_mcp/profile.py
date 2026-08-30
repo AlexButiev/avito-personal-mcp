@@ -33,7 +33,10 @@ def select_current_profile(payload: dict[str, Any]) -> dict[str, Any]:
     if not valid_profiles:
         raise ProfileDiscoveryError("Avito returned no valid profile objects")
 
-    current = next((profile for profile in valid_profiles if profile.get("isCurrent") is True), None)
+    current = next(
+        (profile for profile in valid_profiles if profile.get("isCurrent") is True),
+        None,
+    )
     if current is None and len(valid_profiles) == 1:
         current = valid_profiles[0]
 
