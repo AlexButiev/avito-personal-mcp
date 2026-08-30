@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 from playwright.async_api import Page
 
 from avito_personal_mcp.listings import discover_own_listings
+from avito_personal_mcp.navigation import canonical_same_origin_url
 
 LISTING_ID_RE = re.compile(r"(?:^|_)(\d{4,})(?:$|[/?#])")
 
@@ -43,14 +44,22 @@ async def resolve_listing_url(page: Page, origin: str, reference: int | str) -> 
 
     listing_id = extract_listing_id(reference)
 
-    if isinstance(reference, str) and reference.strip().startswith(origin):
-        parsed = urlparse(reference.strip())
-        return listing_id, f"{origin}{parsed.path}"
+    if isinstance(reference, str):
+        text = reference.strip()
+        if "://" in text:
+            try:
+                return listing_id, canonical_same_origin_url(text, origin)
+            except ValueError as exc:
+                raise ListingDetailError(str(exc)) from exc
 
     listings = await discover_own_listings(page, origin)
     for listing in listings:
         if listing.get("id") == listing_id and isinstance(listing.get("url"), str):
-            return listing_id, listing["url"]
+            try:
+                safe_url = canonical_same_origin_url(listing["url"], origin)
+            except ValueError as exc:
+                raise ListingDetailError("Resolved listing URL is outside the Avito origin") from exc
+            return listing_id, safe_url
 
     raise ListingDetailError("Listing id was not found among the authenticated user's listings")
 
