@@ -11,6 +11,8 @@ from urllib.parse import quote
 
 from playwright.async_api import Page
 
+from avito_personal_mcp.navigation import has_authenticated_marker
+
 CHAT_ID_RE = re.compile(r"^[A-Za-z0-9_~-]{3,200}$")
 MAX_MESSAGE_LENGTH = 4000
 CONFIRMATION_TTL_SECONDS = 120
@@ -107,6 +109,20 @@ def sanitized_preview(text: str, limit: int = 160) -> str:
     return value[: limit - 1] + "…"
 
 
+def send_uncertain_result(chat_id: str) -> dict[str, object]:
+    """Describe an ambiguous post-click send outcome without encouraging retry."""
+
+    return {
+        "status": "send_uncertain",
+        "chat_id": chat_id,
+        "verified": False,
+        "message": (
+            "The send action had already started when the browser operation failed. "
+            "The MCP did not retry because the message may already have been sent."
+        ),
+    }
+
+
 async def _current_outgoing_matches(page: Page, text: str) -> int:
     """Count visible outgoing text messages exactly matching ``text``."""
 
@@ -146,8 +162,10 @@ async def send_confirmed_message(
 
     await page.wait_for_timeout(500)
 
-    if "/profile/login" in page.url or "/login" in page.url:
-        raise SendMessageError("Avito authentication is required.")
+    if not await has_authenticated_marker(page):
+        raise SendMessageError(
+            "Avito authentication is unavailable or the browser session has expired."
+        )
 
     composer = page.locator('[data-marker="reply/input"]')
     if await composer.count() != 1:
@@ -163,13 +181,19 @@ async def send_confirmed_message(
         await composer.fill("")
         raise SendMessageError("Send control did not appear after entering the message.")
 
-    # Intentional write action. There is deliberately no retry after this click.
-    await send_button.click()
+    # Intentional write action. There is deliberately no retry after this point.
+    try:
+        await send_button.click()
+    except Exception:
+        return send_uncertain_result(chat_id)
 
     deadline = time.monotonic() + 6.0
     while time.monotonic() < deadline:
-        await page.wait_for_timeout(200)
-        after_matches = await _current_outgoing_matches(page, text)
+        try:
+            await page.wait_for_timeout(200)
+            after_matches = await _current_outgoing_matches(page, text)
+        except Exception:
+            return send_uncertain_result(chat_id)
         if after_matches > before_matches:
             return {
                 "status": "sent",
