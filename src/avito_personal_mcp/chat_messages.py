@@ -7,6 +7,12 @@ from typing import Any
 
 from playwright.async_api import Page
 
+from avito_personal_mcp.navigation import (
+    PrivatePageStateError,
+    has_authenticated_marker,
+    validate_private_page_state,
+)
+
 
 class ChatMessagesDiscoveryError(RuntimeError):
     """Raised when one Avito conversation cannot be resolved or parsed safely."""
@@ -108,6 +114,8 @@ async def discover_chat_messages(
                 pathname: location.pathname,
                 hasMessenger: Boolean(
                     document.querySelector('[data-marker="desktop-messenger"]') ||
+                    document.querySelector('[data-marker^="channels/"]') ||
+                    document.querySelector('[data-marker="reply/input"]') ||
                     document.querySelector('[data-marker="message"]')
                 ),
                 messages: messages.slice(-limit).map(message => {
@@ -139,16 +147,15 @@ async def discover_chat_messages(
     if not isinstance(raw, dict):
         raise ChatMessagesDiscoveryError("Avito conversation returned an invalid page payload")
 
-    pathname = raw.get("pathname")
-    if pathname != target_path:
-        raise ChatMessagesDiscoveryError(
-            "Avito conversation is unavailable or the authenticated session has changed"
+    try:
+        validate_private_page_state(
+            pathname=raw.get("pathname"),
+            expected_path_prefix=target_path,
+            authenticated=await has_authenticated_marker(page),
+            has_expected_structure=raw.get("hasMessenger") is True,
         )
-
-    if raw.get("hasMessenger") is not True:
-        raise ChatMessagesDiscoveryError(
-            "Avito conversation structure did not match the observed messenger DOM"
-        )
+    except PrivatePageStateError as exc:
+        raise ChatMessagesDiscoveryError(str(exc)) from exc
 
     messages = raw.get("messages")
     if not isinstance(messages, list):
