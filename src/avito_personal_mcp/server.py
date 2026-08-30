@@ -5,8 +5,9 @@ from __future__ import annotations
 from mcp.server import MCPServer
 
 from avito_personal_mcp import __version__
-from avito_personal_mcp.browser import list_open_pages
+from avito_personal_mcp.browser import connect_to_chrome, find_avito_page, list_open_pages
 from avito_personal_mcp.config import Settings
+from avito_personal_mcp.profile import ProfileDiscoveryError, discover_current_profile
 
 mcp = MCPServer("Avito Personal MCP")
 
@@ -43,17 +44,39 @@ async def avito_selfcheck() -> dict[str, object]:
 
 @mcp.tool()
 async def avito_me() -> dict[str, object]:
-    """Return the authenticated Avito profile identity.
+    """Return non-secret identity metadata for the authenticated Avito profile."""
 
-    Profile discovery is deliberately not guessed from undocumented endpoints.
-    It will be implemented after observing the user's real authenticated browser
-    session and identifying a stable, minimally privileged source of truth.
-    """
+    settings = Settings.from_env()
+    try:
+        session = await connect_to_chrome(settings)
+    except Exception as exc:
+        return {
+            "status": "chrome_unreachable",
+            "message": f"Could not connect to Chrome CDP: {type(exc).__name__}",
+        }
 
-    return {
-        "status": "not_implemented",
-        "message": "Profile discovery is the next implementation gate.",
-    }
+    try:
+        page = find_avito_page(session, settings.avito_origin)
+        if page is None:
+            return {
+                "status": "no_avito_tab",
+                "message": "No open Avito tab was found in the attached Chrome session.",
+            }
+
+        try:
+            profile = await discover_current_profile(page)
+        except ProfileDiscoveryError as exc:
+            return {
+                "status": "profile_unavailable",
+                "message": str(exc),
+            }
+
+        return {
+            "status": "ok",
+            "profile": profile,
+        }
+    finally:
+        await session.close()
 
 
 def main() -> None:
