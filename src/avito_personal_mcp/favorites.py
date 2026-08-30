@@ -8,6 +8,12 @@ from urllib.parse import urljoin, urlparse
 
 from playwright.async_api import Page
 
+from avito_personal_mcp.navigation import (
+    PrivatePageStateError,
+    has_authenticated_marker,
+    validate_private_page_state,
+)
+
 
 class FavoritesDiscoveryError(RuntimeError):
     """Raised when the favorites page cannot be resolved or parsed safely."""
@@ -109,6 +115,7 @@ async def discover_favorites(page: Page, origin: str) -> list[dict[str, Any]]:
         raise FavoritesDiscoveryError(f"Avito favorites page returned HTTP {response.status}")
 
     await page.wait_for_timeout(750)
+    authenticated = await has_authenticated_marker(page)
 
     raw = await page.evaluate(
         r"""
@@ -118,6 +125,7 @@ async def discover_favorites(page: Page, origin: str) -> list[dict[str, Any]]:
                 .filter(el => /^item-\d+$/.test(el.getAttribute('data-marker') || ''));
 
             return {
+                pathname: location.pathname,
                 hasFavoritesPage: Boolean(tabs),
                 cards: cards.map(card => ({
                     marker: card.getAttribute('data-marker'),
@@ -135,10 +143,18 @@ async def discover_favorites(page: Page, origin: str) -> list[dict[str, Any]]:
         """
     )
 
-    if not isinstance(raw, dict) or raw.get("hasFavoritesPage") is not True:
-        raise FavoritesDiscoveryError(
-            "Avito favorites page structure did not match the observed favorites DOM"
+    if not isinstance(raw, dict):
+        raise FavoritesDiscoveryError("Avito favorites page returned an invalid DOM result")
+
+    try:
+        validate_private_page_state(
+            pathname=raw.get("pathname"),
+            expected_path_prefix="/favorites",
+            authenticated=authenticated,
+            has_expected_structure=raw.get("hasFavoritesPage") is True,
         )
+    except PrivatePageStateError as exc:
+        raise FavoritesDiscoveryError(str(exc)) from exc
 
     cards = raw.get("cards")
     if not isinstance(cards, list):

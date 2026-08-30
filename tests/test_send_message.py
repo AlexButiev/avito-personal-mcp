@@ -8,6 +8,7 @@ from avito_personal_mcp.send_message import (
     consume_confirmation,
     create_confirmation,
     sanitized_preview,
+    send_uncertain_result,
     validate_chat_id,
     validate_message_text,
 )
@@ -91,3 +92,12 @@ def test_preview_collapses_whitespace_and_truncates() -> None:
     assert sanitized_preview("hello\n\nworld") == "hello world"
     preview = sanitized_preview("x" * 200, limit=20)
     assert preview == "x" * 19 + "…"
+
+
+def test_send_uncertain_result_is_non_retrying_and_unverified() -> None:
+    result = send_uncertain_result("chat_123")
+
+    assert result["status"] == "send_uncertain"
+    assert result["chat_id"] == "chat_123"
+    assert result["verified"] is False
+    assert "did not retry" in str(result["message"])

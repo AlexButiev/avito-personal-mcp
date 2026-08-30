@@ -9,6 +9,8 @@ from urllib.parse import urljoin
 from playwright.async_api import Page
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
+from avito_personal_mcp.navigation import canonical_same_origin_url
+
 
 class SearchDiscoveryError(RuntimeError):
     """Raised when Avito search results cannot be resolved or parsed safely."""
@@ -23,6 +25,13 @@ def normalize_search_result(raw: dict[str, Any], origin: str) -> dict[str, Any]:
     href = raw.get("href")
     if not isinstance(href, str) or not href:
         raise SearchDiscoveryError("Search result has no listing URL")
+
+    try:
+        safe_url = canonical_same_origin_url(urljoin(origin, href), origin)
+    except ValueError as exc:
+        raise SearchDiscoveryError(
+            "Search result URL is outside the configured Avito origin"
+        ) from exc
 
     listing_id = raw.get("id")
     if not isinstance(listing_id, str) or not listing_id.isdigit():
@@ -41,7 +50,7 @@ def normalize_search_result(raw: dict[str, Any], origin: str) -> dict[str, Any]:
     return {
         "id": int(listing_id),
         "title": clean("title"),
-        "url": urljoin(origin, href),
+        "url": safe_url,
         "price": clean("price"),
         "location": clean("location"),
         "date": clean("date"),
