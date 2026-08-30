@@ -65,10 +65,30 @@ def normalize_detail(raw: dict[str, Any], listing_id: int, url: str) -> dict[str
         value = " ".join(value.split())
         return value or None
 
-    params = raw.get("params")
-    if not isinstance(params, list):
-        params = []
-    params = [" ".join(x.split()) for x in params if isinstance(x, str) and x.strip()]
+    raw_params = raw.get("params")
+    if not isinstance(raw_params, list):
+        raw_params = []
+
+    params: list[str] = []
+    for value in raw_params:
+        if not isinstance(value, str) or not value.strip():
+            continue
+        normalized = " ".join(value.split())
+        if normalized in params:
+            continue
+        params.append(normalized)
+
+    # Avito's parameter block may expose both the complete row (for example
+    # ``State: Used``) and a nested label node (``State:``). Keep only the
+    # complete value when both are present.
+    params = [
+        value
+        for value in params
+        if not (
+            value.endswith(":")
+            and any(other != value and other.startswith(f"{value} ") for other in params)
+        )
+    ]
 
     state = "inactive" if raw.get("expired") or raw.get("can_activate") else "active_or_unknown"
 
