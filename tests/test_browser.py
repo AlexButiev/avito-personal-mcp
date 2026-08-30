@@ -55,7 +55,7 @@ async def test_browser_access_gate_applies_minimum_start_interval(
     sleeps: list[float] = []
 
     monkeypatch.setattr(
-        "avito_personal_mcp.browser.time.monotonic",
+        "avito_personal_mcp.browser.monotonic",
         lambda: next(monotonic_values),
     )
 
