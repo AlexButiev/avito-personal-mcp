@@ -21,7 +21,7 @@ class Settings:
     avito_origin: str = DEFAULT_AVITO_ORIGIN
 
     @classmethod
-    def from_env(cls) -> "Settings":
+    def from_env(cls) -> Settings:
         return cls(
             cdp_url=os.getenv("AVITO_MCP_CDP_URL", DEFAULT_CDP_URL),
             avito_origin=os.getenv("AVITO_MCP_ORIGIN", DEFAULT_AVITO_ORIGIN),
