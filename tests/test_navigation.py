@@ -1,9 +1,11 @@
 import pytest
 
 from avito_personal_mcp.navigation import (
+    PrivatePageStateError,
     canonical_same_origin_url,
     is_same_origin,
     normalize_origin,
+    validate_private_page_state,
 )
 
 
@@ -47,3 +49,42 @@ def test_canonical_same_origin_url_rejects_off_origin():
 def test_normalize_origin_rejects_credentials():
     with pytest.raises(ValueError, match="user information"):
         normalize_origin("https://user:pass@www.avito.ru")
+
+
+def test_private_page_state_accepts_authenticated_empty_collection():
+    validate_private_page_state(
+        pathname="/profile",
+        expected_path_prefix="/profile",
+        authenticated=True,
+        has_expected_structure=True,
+    )
+
+
+def test_private_page_state_rejects_auth_expiry():
+    with pytest.raises(PrivatePageStateError, match="authentication"):
+        validate_private_page_state(
+            pathname="/profile",
+            expected_path_prefix="/profile",
+            authenticated=False,
+            has_expected_structure=True,
+        )
+
+
+def test_private_page_state_rejects_wrong_path():
+    with pytest.raises(PrivatePageStateError, match="expected path"):
+        validate_private_page_state(
+            pathname="/login",
+            expected_path_prefix="/profile",
+            authenticated=False,
+            has_expected_structure=False,
+        )
+
+
+def test_private_page_state_rejects_dom_mismatch():
+    with pytest.raises(PrivatePageStateError, match="structure"):
+        validate_private_page_state(
+            pathname="/profile",
+            expected_path_prefix="/profile",
+            authenticated=True,
+            has_expected_structure=False,
+        )
