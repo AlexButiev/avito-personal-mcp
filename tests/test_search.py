@@ -1,4 +1,6 @@
-from avito_personal_mcp.search import normalize_search_result
+import pytest
+
+from avito_personal_mcp.search import SearchDiscoveryError, normalize_search_result
 
 
 def test_normalize_search_result() -> None:
@@ -50,10 +52,7 @@ def test_normalize_search_result_extracts_id_from_observed_href() -> None:
     result = normalize_search_result(
         {
             "id": None,
-            "href": (
-                "/syktyvkar/noutbuki/noutbuk_8361138738"
-                "?context=sanitized"
-            ),
+            "href": "/syktyvkar/noutbuki/noutbuk_8361138738?context=sanitized",
             "title": "Ноутбук",
             "price": "10 000 ₽",
             "location": "Сыктывкар",
@@ -64,6 +63,36 @@ def test_normalize_search_result_extracts_id_from_observed_href() -> None:
     )
 
     assert result["id"] == 8361138738
-    assert result["url"].startswith(
-        "https://www.avito.ru/syktyvkar/noutbuki/noutbuk_8361138738"
+    assert result["url"] == "https://www.avito.ru/syktyvkar/noutbuki/noutbuk_8361138738"
+
+
+def test_normalize_search_result_accepts_absolute_same_origin_url() -> None:
+    result = normalize_search_result(
+        {
+            "id": "1234567890",
+            "href": "https://www.avito.ru/item_1234567890?context=sanitized",
+            "title": "Item",
+        },
+        "https://www.avito.ru",
     )
+
+    assert result["url"] == "https://www.avito.ru/item_1234567890"
+
+
+@pytest.mark.parametrize(
+    "href",
+    [
+        "https://www.avito.ru.evil.example/item_1234567890",
+        "//evil.example/item_1234567890",
+    ],
+)
+def test_normalize_search_result_rejects_off_origin_url(href: str) -> None:
+    with pytest.raises(SearchDiscoveryError, match="outside the configured Avito origin"):
+        normalize_search_result(
+            {
+                "id": "1234567890",
+                "href": href,
+                "title": "Item",
+            },
+            "https://www.avito.ru",
+        )
