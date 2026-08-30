@@ -44,3 +44,26 @@ def test_normalize_search_result_allows_missing_optional_text() -> None:
     assert result["location"] is None
     assert result["date"] is None
     assert result["seller"] is None
+
+
+def test_normalize_search_result_extracts_id_from_observed_href() -> None:
+    result = normalize_search_result(
+        {
+            "id": None,
+            "href": (
+                "/syktyvkar/noutbuki/noutbuk_8361138738"
+                "?context=sanitized"
+            ),
+            "title": "Ноутбук",
+            "price": "10 000 ₽",
+            "location": "Сыктывкар",
+            "date": None,
+            "seller": None,
+        },
+        "https://www.avito.ru",
+    )
+
+    assert result["id"] == 8361138738
+    assert result["url"].startswith(
+        "https://www.avito.ru/syktyvkar/noutbuki/noutbuk_8361138738"
+    )
