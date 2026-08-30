@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "avito-personal-mcp"
-version = "0.1.0.dev0"
+version = "0.1.0rc1"
 description = "Unofficial MCP server for interacting with Avito through a user-controlled authenticated browser session"
 readme = "README.md"
 requires-python = ">=3.11"
