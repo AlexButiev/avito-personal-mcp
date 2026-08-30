@@ -8,6 +8,12 @@ from urllib.parse import urljoin, urlparse
 
 from playwright.async_api import Page
 
+from avito_personal_mcp.navigation import (
+    PrivatePageStateError,
+    has_authenticated_marker,
+    validate_private_page_state,
+)
+
 
 class ChatsDiscoveryError(RuntimeError):
     """Raised when the messenger page cannot be resolved or parsed safely."""
@@ -48,9 +54,8 @@ def normalize_chat(raw: dict[str, Any], origin: str) -> dict[str, Any]:
     lines_raw = raw.get("lines")
     lines = [line for line in (_clean(item) for item in lines_raw or []) if line]
 
-    # Some Avito service chats (for example Support) do not render a
-    # channels/user-title marker. The first visible line is still the channel
-    # title inside the same channelLink, so use it only as a local fallback.
+    # Some Avito service chats do not render a channels/user-title marker. The
+    # first visible line is still the channel title inside the same channelLink.
     if user_title is None and lines:
         user_title = lines[0]
 
@@ -76,6 +81,7 @@ async def discover_chats(page: Page, origin: str) -> list[dict[str, Any]]:
         raise ChatsDiscoveryError(f"Avito messenger page returned HTTP {response.status}")
 
     await page.wait_for_timeout(750)
+    authenticated = await has_authenticated_marker(page)
 
     raw = await page.evaluate(
         r"""
@@ -121,16 +127,15 @@ async def discover_chats(page: Page, origin: str) -> list[dict[str, Any]]:
     if not isinstance(raw, dict):
         raise ChatsDiscoveryError("Avito messenger returned an invalid page payload")
 
-    pathname = raw.get("pathname")
-    if not isinstance(pathname, str) or not pathname.startswith("/profile/messenger"):
-        raise ChatsDiscoveryError(
-            "Avito messenger is unavailable or the authenticated session has changed"
+    try:
+        validate_private_page_state(
+            pathname=raw.get("pathname"),
+            expected_path_prefix="/profile/messenger",
+            authenticated=authenticated,
+            has_expected_structure=raw.get("hasMessengerStructure") is True,
         )
-
-    if raw.get("hasMessengerStructure") is not True:
-        raise ChatsDiscoveryError(
-            "Avito messenger page structure did not match the observed channels DOM"
-        )
+    except PrivatePageStateError as exc:
+        raise ChatsDiscoveryError(str(exc)) from exc
 
     chats = raw.get("chats")
     if not isinstance(chats, list):
