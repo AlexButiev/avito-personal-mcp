@@ -49,10 +49,22 @@ def normalize_search_result(raw: dict[str, Any], origin: str) -> dict[str, Any]:
     }
 
 
+async def _results_ready(page: Page, serp_selector: str, title_selector: str) -> bool:
+    """Return whether the current live document contains hydrated Avito results."""
+
+    try:
+        has_serp = await page.locator(serp_selector).count() > 0
+        has_titles = await page.locator(title_selector).count() > 0
+    except Exception:
+        return False
+    return has_serp and has_titles
+
+
 async def _submit_search_form(page: Page, origin: str, query: str) -> None:
     """Submit Avito's observed normal search form instead of guessing search URLs."""
 
     input_selector = '[data-marker="search-form/suggest/input"]'
+    submit_selector = '[data-marker="search-form/submit-button"]'
     serp_selector = '[data-marker="catalog-serp"]'
     title_selector = '[data-marker="item-title"]'
 
@@ -63,36 +75,34 @@ async def _submit_search_form(page: Page, origin: str, query: str) -> None:
         raise SearchDiscoveryError(f"Avito home page returned HTTP {response.status}")
 
     search_input = page.locator(input_selector).first
-    if not await search_input.count():
+    submit_button = page.locator(submit_selector).first
+    if not await search_input.count() or not await submit_button.count():
         raise SearchDiscoveryError("Avito search form did not match the observed page structure")
 
     await search_input.fill(query)
     before_url = page.url
 
-    # Live reconnaissance showed that pressing Enter in the observed search
-    # input reliably triggers Avito's normal search flow. The page briefly
-    # passes through an intermediate blank DOM before the final SERP hydrates.
-    await search_input.press("Enter")
+    # The live browser screenshot confirms that filling the field opens Avito's
+    # suggestion panel and that the explicit blue submit button remains present.
+    # Clicking that observed control is less ambiguous than Enter, which can be
+    # consumed by autocomplete and leave the query filled without submitting.
+    await submit_button.click()
 
     try:
-        await page.wait_for_url(lambda url: str(url) != before_url, timeout=10_000)
+        await page.wait_for_url(lambda url: str(url) != before_url, timeout=5_000)
     except PlaywrightTimeoutError:
-        pass
+        # Fallback to the same normal UI action previously confirmed during
+        # reconnaissance if Avito did not react to the button click.
+        current_input = page.locator(input_selector).first
+        if await current_input.count():
+            await current_input.press("Enter")
 
-    # A locator wait proved unreliable across Avito's intermediate client-side
-    # navigation. Poll the live document instead and require both the SERP root
-    # and at least one real listing title before parsing.
-    for _ in range(30):
-        try:
-            has_serp = await page.locator(serp_selector).count() > 0
-            has_titles = await page.locator(title_selector).count() > 0
-        except Exception:
-            has_serp = False
-            has_titles = False
-
-        if has_serp and has_titles:
+    # Avito briefly passes through an intermediate blank DOM before the final
+    # SERP hydrates. Poll the live document and require both the root and at
+    # least one real listing title before parsing.
+    for _ in range(40):
+        if await _results_ready(page, serp_selector, title_selector):
             return
-
         await page.wait_for_timeout(500)
 
     raise SearchDiscoveryError("Avito search did not reach the observed search-results page")
