@@ -27,6 +27,7 @@ dev = [
 
 [project.scripts]
 avito-personal-mcp = "avito_personal_mcp.server:main"
+avito-ai = "avito_personal_mcp.cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
