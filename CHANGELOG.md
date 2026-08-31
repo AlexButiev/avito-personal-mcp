@@ -6,6 +6,28 @@ The project follows semantic versioning. Release candidates use the `rc` prerele
 
 ## [Unreleased]
 
+## [0.1.0rc3] - 2026-09-01
+
+Third public release candidate. It adds the first stable structured-search
+slice after live DOM research in a user-controlled browser.
+
+### Added
+
+- Optional `min_price`, `max_price`, and fixed logical `sort` arguments to
+  `avito_search` and the `avito-ai search` terminal fallback.
+- Price-range and sort validation, CLI mapping coverage, and server forwarding
+  coverage for the new search parameters.
+
+### Safety and reliability
+
+- Price and sort are applied only through observed rendered Avito controls,
+  supporting both compact and expanded price-filter layouts.
+- Search waits for a real visible SERP refresh after a filter or sort action;
+  it never manually constructs Avito's undocumented search state or accepts
+  arbitrary frontend selectors from MCP clients.
+- Location, category-specific filters, and pagination remain deferred rather
+  than being guessed from unstable category-dependent controls.
+
 ## [0.1.0rc2] - 2026-08-31
 
 Second public release candidate. It promotes the packaged-client and

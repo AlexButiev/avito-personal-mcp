@@ -177,8 +177,14 @@ async def avito_get_listing(reference: int | str) -> dict[str, object]:
 
 
 @mcp.tool()
-async def avito_search(query: str, limit: int = 10) -> dict[str, object]:
-    """Search Avito read-only through the normal rendered search-results page."""
+async def avito_search(
+    query: str,
+    limit: int = 10,
+    min_price: int | None = None,
+    max_price: int | None = None,
+    sort: str | None = None,
+) -> dict[str, object]:
+    """Search Avito read-only with observed generic price and sort controls."""
 
     settings = Settings.from_env()
     try:
@@ -198,7 +204,15 @@ async def avito_search(query: str, limit: int = 10) -> dict[str, object]:
             }
 
         try:
-            results = await search_avito(page, settings.avito_origin, query, limit)
+            results = await search_avito(
+                page,
+                settings.avito_origin,
+                query,
+                limit,
+                min_price,
+                max_price,
+                sort,
+            )
         except SearchDiscoveryError as exc:
             return {
                 "status": "search_unavailable",
@@ -209,6 +223,11 @@ async def avito_search(query: str, limit: int = 10) -> dict[str, object]:
             "status": "ok",
             "query": query,
             "count": len(results),
+            "applied": {
+                "min_price": min_price,
+                "max_price": max_price,
+                "sort": sort,
+            },
             "results": results,
         }
     finally:

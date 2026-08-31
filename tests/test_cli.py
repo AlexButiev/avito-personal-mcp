@@ -23,7 +23,36 @@ def test_search_maps_to_mcp_tool() -> None:
     args = parse("search", "мини ПК Ryzen 7840HS", "--limit", "20")
     assert command_to_tool(args) == (
         "avito_search",
-        {"query": "мини ПК Ryzen 7840HS", "limit": 20},
+        {
+            "query": "мини ПК Ryzen 7840HS",
+            "limit": 20,
+            "min_price": None,
+            "max_price": None,
+            "sort": None,
+        },
+    )
+
+
+def test_search_maps_price_and_sort_options_to_mcp_tool() -> None:
+    args = parse(
+        "search",
+        "мини ПК Ryzen 7840HS",
+        "--min-price",
+        "10000",
+        "--max-price",
+        "100000",
+        "--sort",
+        "price_asc",
+    )
+    assert command_to_tool(args) == (
+        "avito_search",
+        {
+            "query": "мини ПК Ryzen 7840HS",
+            "limit": 10,
+            "min_price": 10_000,
+            "max_price": 100_000,
+            "sort": "price_asc",
+        },
     )
 
 

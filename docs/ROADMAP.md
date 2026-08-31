@@ -5,7 +5,7 @@ Avito Personal MCP. It is deliberately narrower than the full set of things an
 Avito business API may expose: this project is for an ordinary person's existing
 browser session, not an unattended storefront operator.
 
-Last reviewed: 2026-08-31.
+Last reviewed: 2026-09-01.
 
 ## Product boundary
 
@@ -58,7 +58,7 @@ the current ChatGPT Plus limitation from project readiness.
 | --- | --- | --- | --- | --- |
 | Connection and safe diagnostics | `avito_selfcheck` | Read | Complete foundation | Returns aggregate tab state only, never tab URLs or titles; CDP must stay loopback-only. |
 | Current profile | `avito_me` | Read | Complete foundation | Fails closed on unavailable authentication. |
-| Search and result cards | `avito_search` | Read | High next read increment | Current version searches text only; structured filters, sort, location, and pagination require fresh DOM observation before implementation. |
+| Search and result cards | `avito_search` | Read | First useful slice complete | Text query, non-negative price bounds, and a fixed observed sort set (`default`, price asc/desc, date, discount) are supported through visible UI controls. Location, category-specific filters, and pagination remain deferred until separately observed and accepted. |
 | Listing detail | `avito_get_listing` | Read | Complete foundation | A bare numeric ID is intentionally limited to the user's own listings; another listing requires its exact supplied same-origin URL. The server never constructs a URL from an ID. |
 | Own listing overview | `avito_my_listings` | Read | Complete foundation | Listing lifecycle, editing, reactivation, and price changes remain deferred writes. |
 | Favorites overview | `avito_favorites` | Read | Complete foundation | Add/remove favorites is valuable but must be a separately guarded write. |
@@ -102,13 +102,23 @@ unauthenticated-session failures, and MCP-client restart behavior were checked
 without putting private Avito data into project artifacts. See
 [ACCEPTANCE_GATE_12.md](ACCEPTANCE_GATE_12.md).
 
-### Gate 13 — useful read-only search
+### Gate 13 — useful read-only search — first slice complete in `0.1.0rc3`
 
-Observe the current Avito search UI in a user-controlled browser and add only
-the stable, high-value controls that are actually present: at minimum price,
-location, sort, category where applicable, and bounded pagination. Preserve
-plain-text search as a fallback. Each new selector needs sanitized parser tests
-and a documented failure mode; do not construct undocumented internal API URLs.
+The first stable cross-query controls were implemented and accepted against the
+rendered Avito UI: text query, optional `min_price` / `max_price`, and a fixed
+logical sort set. The implementation supports both observed price layouts: a
+compact popup with an explicit confirmation control and an expanded filter pane
+that applies on Enter. It waits for an observed SERP refresh and never
+constructs internal search URLs. Plain-text search remains the fallback. See
+[ACCEPTANCE_GATE_13.md](ACCEPTANCE_GATE_13.md).
+
+### Gate 13b — query-aware search extensions
+
+Research location, category-specific filters, and bounded pagination one at a
+time. Each must be exposed as a narrow logical parameter only after its exact
+rendered control and successful refresh state are observed in the applicable
+query/category. Do not expose generic `params[...]` passthrough values,
+ambiguous toggles, or guessed URL fields.
 
 ### Gate 14 — favorite a selected result
 

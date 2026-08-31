@@ -53,7 +53,7 @@ jobs:
 
       - name: Verify installed version and console entry points
         run: |
-          python -c "import importlib.metadata; assert importlib.metadata.version('avito-personal-mcp') == '0.1.0rc2'"
+          python -c "import importlib.metadata; assert importlib.metadata.version('avito-personal-mcp') == '0.1.0rc3'"
           python -c "from avito_personal_mcp.server import main; assert callable(main)"
           python -c "from avito_personal_mcp.cli import installed_server_command; assert installed_server_command()"
           command -v avito-personal-mcp
