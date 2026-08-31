@@ -114,6 +114,12 @@ def build_parser() -> argparse.ArgumentParser:
     search = subparsers.add_parser("search", help="search Avito")
     search.add_argument("query")
     search.add_argument("--limit", type=int, default=10)
+    search.add_argument("--min-price", type=int)
+    search.add_argument("--max-price", type=int)
+    search.add_argument(
+        "--sort",
+        choices=("default", "price_asc", "price_desc", "date_desc", "discount_desc"),
+    )
 
     listing = subparsers.add_parser(
         "listing",
@@ -147,7 +153,13 @@ def command_to_tool(args: argparse.Namespace) -> tuple[str, dict[str, object]]:
     if args.command == "chats":
         return "avito_chats", {}
     if args.command == "search":
-        return "avito_search", {"query": args.query, "limit": args.limit}
+        return "avito_search", {
+            "query": args.query,
+            "limit": args.limit,
+            "min_price": args.min_price,
+            "max_price": args.max_price,
+            "sort": args.sort,
+        }
     if args.command == "listing":
         return "avito_get_listing", {"reference": args.reference}
     if args.command == "messages":

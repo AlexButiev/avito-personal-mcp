@@ -1,6 +1,38 @@
 import pytest
 
-from avito_personal_mcp.search import SearchDiscoveryError, normalize_search_result
+from avito_personal_mcp.search import (
+    SearchDiscoveryError,
+    normalize_search_result,
+    validate_search_options,
+)
+
+
+def test_validate_search_options_returns_only_supported_values() -> None:
+    assert validate_search_options(10_000, 100_000, "price_asc") == {
+        "min_price": 10_000,
+        "max_price": 100_000,
+        "sort": "price_asc",
+    }
+
+
+@pytest.mark.parametrize(
+    ("min_price", "max_price", "sort", "message"),
+    [
+        (-1, None, None, "min_price must be a non-negative integer"),
+        (None, -1, None, "max_price must be a non-negative integer"),
+        (True, None, None, "min_price must be a non-negative integer"),
+        (100, 99, None, "min_price must not be greater than max_price"),
+        (None, None, "newest_first", "sort must be one of"),
+    ],
+)
+def test_validate_search_options_rejects_invalid_values(
+    min_price: int | None,
+    max_price: int | None,
+    sort: str | None,
+    message: str,
+) -> None:
+    with pytest.raises(SearchDiscoveryError, match=message):
+        validate_search_options(min_price, max_price, sort)
 
 
 def test_normalize_search_result() -> None:

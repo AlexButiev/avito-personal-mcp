@@ -121,10 +121,29 @@ to copy a compact, structured result into a chat.
 ```bash
 avito-ai selfcheck
 avito-ai --compact search "мини ПК для HomeLab" --limit 10
+avito-ai --compact search "ноутбук" --min-price 10000 --max-price 100000 --sort price_asc --limit 10
 avito-ai listing OWN_LISTING_ID
 avito-ai listing '<exact-Avito-URL-copied-from-browser-or-search-result>'
 avito-ai messages CHAT_ID --limit 20
 ```
+
+### Search price and sort
+
+`avito_search` accepts optional `min_price`, `max_price`, and `sort` arguments;
+the same options are exposed by `avito-ai search` as `--min-price`,
+`--max-price`, and `--sort`. Price bounds are non-negative integers and the
+maximum cannot be below the minimum. Supported sort values are:
+
+- `default` — Avito's normal result order;
+- `price_asc` / `price_desc` — lower or higher price first;
+- `date_desc` — newest first;
+- `discount_desc` — larger discount first.
+
+The server uses Avito's rendered price inputs and sort menu, then verifies that
+the visible result set refreshed. It does not construct undocumented search
+URLs or pass arbitrary filter selectors from a client. Category-specific
+filters, location, and pagination are intentionally deferred until each has
+its own stable UI observation and fail-closed acceptance.
 
 A bare numeric ID is deliberately supported only for one of **your own**
 listings: the server first finds its observed URL in the authenticated profile.
