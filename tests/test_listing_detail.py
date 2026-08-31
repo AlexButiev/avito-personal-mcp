@@ -4,6 +4,7 @@ from avito_personal_mcp.listing_detail import (
     ListingDetailError,
     extract_listing_id,
     normalize_detail,
+    resolve_listing_url,
 )
 
 
@@ -46,3 +47,48 @@ def test_normalize_detail():
         "seller_name": "Seller",
         "state": "inactive",
     }
+
+
+async def test_resolve_listing_url_uses_exact_public_url_without_own_listing_lookup(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    async def unexpected_lookup(*_args, **_kwargs):
+        raise AssertionError("An explicit listing URL must not inspect own listings")
+
+    monkeypatch.setattr(
+        "avito_personal_mcp.listing_detail.discover_own_listings", unexpected_lookup
+    )
+
+    assert await resolve_listing_url(
+        None,  # type: ignore[arg-type]
+        "https://www.avito.ru",
+        "https://www.avito.ru/city/category/exact_listing_1234567890?context=search",
+    ) == (1234567890, "https://www.avito.ru/city/category/exact_listing_1234567890")
+
+
+async def test_resolve_listing_url_resolves_bare_id_only_from_own_listings(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    async def own_listings(*_args, **_kwargs):
+        return [{"id": 1234567890, "url": "https://www.avito.ru/own_1234567890"}]
+
+    monkeypatch.setattr("avito_personal_mcp.listing_detail.discover_own_listings", own_listings)
+
+    assert await resolve_listing_url(None, "https://www.avito.ru", 1234567890) == (
+        1234567890,
+        "https://www.avito.ru/own_1234567890",
+    )
+
+
+async def test_resolve_listing_url_rejects_unknown_bare_id_without_guessing_url(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    async def no_own_listings(*_args, **_kwargs):
+        return []
+
+    monkeypatch.setattr(
+        "avito_personal_mcp.listing_detail.discover_own_listings", no_own_listings
+    )
+
+    with pytest.raises(ListingDetailError, match="URLs are never guessed from IDs"):
+        await resolve_listing_url(None, "https://www.avito.ru", "1234567890")

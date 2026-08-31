@@ -66,7 +66,10 @@ async def resolve_listing_url(page: Page, origin: str, reference: int | str) -> 
                 ) from exc
             return listing_id, safe_url
 
-    raise ListingDetailError("Listing id was not found among the authenticated user's listings")
+    raise ListingDetailError(
+        "Listing id was not found among the authenticated user's listings. "
+        "Pass an exact Avito URL for another public listing; URLs are never guessed from IDs."
+    )
 
 
 def normalize_detail(raw: dict[str, Any], listing_id: int, url: str) -> dict[str, Any]:

@@ -34,8 +34,9 @@ mcp = MCPServer("Avito Personal MCP")
 async def avito_selfcheck() -> dict[str, object]:
     """Check whether the MCP server can reach the user-controlled Chrome session.
 
-    This diagnostic is intentionally non-invasive. It only enumerates open page
-    URLs/titles and reports whether an Avito tab is currently visible.
+    This diagnostic is intentionally non-invasive. It only reports aggregate
+    tab counts and whether an Avito tab is currently visible; page URLs and
+    titles are not returned to the MCP client.
     """
 
     settings = Settings.from_env()
@@ -56,7 +57,6 @@ async def avito_selfcheck() -> dict[str, object]:
         "cdp_url": settings.cdp_url,
         "open_pages": len(pages),
         "avito_pages": len(avito_pages),
-        "pages": avito_pages,
     }
 
 
@@ -137,7 +137,11 @@ async def avito_my_listings() -> dict[str, object]:
 
 @mcp.tool()
 async def avito_get_listing(reference: int | str) -> dict[str, object]:
-    """Return read-only details for one own Avito listing by id or Avito URL."""
+    """Return details for an own listing by ID, or any listing by exact Avito URL.
+
+    A bare numeric ID is resolved only from the authenticated user's rendered
+    listings. The tool never manufactures a public Avito URL from an ID.
+    """
 
     settings = Settings.from_env()
     try:
