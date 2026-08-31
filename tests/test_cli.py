@@ -33,6 +33,18 @@ def test_messages_maps_to_mcp_tool() -> None:
     )
 
 
+def test_argumentless_commands_do_not_read_other_subcommand_attributes() -> None:
+    expected = {
+        "selfcheck": ("avito_selfcheck", {}),
+        "me": ("avito_me", {}),
+        "my-listings": ("avito_my_listings", {}),
+        "favorites": ("avito_favorites", {}),
+        "chats": ("avito_chats", {}),
+    }
+    for command, mapping in expected.items():
+        assert command_to_tool(parse(command)) == mapping
+
+
 def test_compact_output_is_valid_compact_json() -> None:
     assert render_result({"status": "ok", "count": 2}, compact=True) == (
         '{"status":"ok","count":2}'
