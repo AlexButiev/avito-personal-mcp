@@ -86,20 +86,31 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def command_to_tool(args: argparse.Namespace) -> tuple[str, dict[str, object]]:
-    mapping = {
-        "selfcheck": ("avito_selfcheck", {}),
-        "me": ("avito_me", {}),
-        "my-listings": ("avito_my_listings", {}),
-        "favorites": ("avito_favorites", {}),
-        "chats": ("avito_chats", {}),
-        "search": ("avito_search", {"query": args.query, "limit": args.limit}),
-        "listing": ("avito_get_listing", {"reference": args.reference}),
-        "messages": (
-            "avito_chat_messages",
-            {"chat_id": args.chat_id, "limit": args.limit},
-        ),
-    }
-    return mapping[args.command]
+    """Map only the selected CLI command to one MCP tool invocation.
+
+    Keep this branch-based rather than constructing a mapping containing every
+    command. argparse only creates attributes for the selected subcommand, so
+    eagerly reading attributes from other subcommands raises AttributeError.
+    """
+
+    if args.command == "selfcheck":
+        return "avito_selfcheck", {}
+    if args.command == "me":
+        return "avito_me", {}
+    if args.command == "my-listings":
+        return "avito_my_listings", {}
+    if args.command == "favorites":
+        return "avito_favorites", {}
+    if args.command == "chats":
+        return "avito_chats", {}
+    if args.command == "search":
+        return "avito_search", {"query": args.query, "limit": args.limit}
+    if args.command == "listing":
+        return "avito_get_listing", {"reference": args.reference}
+    if args.command == "messages":
+        return "avito_chat_messages", {"chat_id": args.chat_id, "limit": args.limit}
+
+    raise ValueError(f"Unsupported command: {args.command}")
 
 
 def render_result(result: Any, *, compact: bool) -> str:
