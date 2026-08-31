@@ -18,6 +18,12 @@ The project follows semantic versioning. Release candidates use the `rc` prerele
   its active Python environment instead of importing a repository checkout.
 - `avito_selfcheck` now returns aggregate tab state only, not browser tab URLs
   or titles.
+- A bare `avito_get_listing` / `avito-ai listing` ID is now explicitly
+  documented and reported as an own-listing-only lookup; another public listing
+  requires its exact Avito URL, which is never guessed from an ID.
+- Added the current ChatGPT Plus availability boundary and a private Secure MCP
+  Tunnel runbook for a future eligible workspace; no unsupported Plus setup is
+  presented as validated.
 
 ## [0.1.0rc1] - 2026-08-31
 

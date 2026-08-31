@@ -137,7 +137,11 @@ async def avito_my_listings() -> dict[str, object]:
 
 @mcp.tool()
 async def avito_get_listing(reference: int | str) -> dict[str, object]:
-    """Return read-only details for one own Avito listing by id or Avito URL."""
+    """Return details for an own listing by ID, or any listing by exact Avito URL.
+
+    A bare numeric ID is resolved only from the authenticated user's rendered
+    listings. The tool never manufactures a public Avito URL from an ID.
+    """
 
     settings = Settings.from_env()
     try:

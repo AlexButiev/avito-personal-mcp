@@ -121,9 +121,17 @@ to copy a compact, structured result into a chat.
 ```bash
 avito-ai selfcheck
 avito-ai --compact search "мини ПК для HomeLab" --limit 10
-avito-ai listing 1234567890
+avito-ai listing OWN_LISTING_ID
+avito-ai listing '<exact-Avito-URL-copied-from-browser-or-search-result>'
 avito-ai messages CHAT_ID --limit 20
 ```
+
+A bare numeric ID is deliberately supported only for one of **your own**
+listings: the server first finds its observed URL in the authenticated profile.
+For another public listing, pass its exact same-origin Avito URL, copied from the
+browser or returned by `avito_search`. The server never guesses a listing URL
+from a numeric ID, because Avito paths include volatile location/category/slug
+segments and a guessed path is neither reliable nor safe.
 
 The command launches the installed `avito-personal-mcp` console entry point from
 the same Python environment, not a repository checkout or a private browser
@@ -219,7 +227,10 @@ GitHub Actions runs sanitized unit tests and Ruff on Python 3.11, 3.12, 3.13, an
 
 See [CHANGELOG.md](CHANGELOG.md) for release notes and
 [docs/ROADMAP.md](docs/ROADMAP.md) for the capability boundary, safety model,
-and planned development order.
+and planned development order. See
+[docs/CHATGPT_CONNECTION.md](docs/CHATGPT_CONNECTION.md) for the current
+ChatGPT/Plus availability boundary and the private-tunnel runbook for a future
+eligible workspace.
 
 ## License
 

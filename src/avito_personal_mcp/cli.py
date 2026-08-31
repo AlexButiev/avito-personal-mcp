@@ -100,7 +100,10 @@ def build_parser() -> argparse.ArgumentParser:
     search.add_argument("query")
     search.add_argument("--limit", type=int, default=10)
 
-    listing = subparsers.add_parser("listing", help="show one listing by id or URL")
+    listing = subparsers.add_parser(
+        "listing",
+        help="show your listing by ID, or any listing by exact Avito URL",
+    )
     listing.add_argument("reference")
 
     messages = subparsers.add_parser("messages", help="show recent messages from one chat")

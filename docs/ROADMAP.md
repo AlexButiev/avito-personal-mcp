@@ -48,6 +48,9 @@ The OpenAI surface is evolving. In particular, account plan, developer-mode,
 and write-action availability must be verified at connection time rather than
 treated as a permanent product promise. See OpenAI's
 [developer-mode guidance](https://help.openai.com/en/articles/12584461-developer-mode-and-full-mcp-connectors-in-chatgpt).
+The owner-facing status and a future tunnel runbook are kept in
+[CHATGPT_CONNECTION.md](CHATGPT_CONNECTION.md); they deliberately distinguish
+the current ChatGPT Plus limitation from project readiness.
 
 ## Capability map
 
@@ -56,7 +59,7 @@ treated as a permanent product promise. See OpenAI's
 | Connection and safe diagnostics | `avito_selfcheck` | Read | Complete foundation | Returns aggregate tab state only, never tab URLs or titles; CDP must stay loopback-only. |
 | Current profile | `avito_me` | Read | Complete foundation | Fails closed on unavailable authentication. |
 | Search and result cards | `avito_search` | Read | High next read increment | Current version searches text only; structured filters, sort, location, and pagination require fresh DOM observation before implementation. |
-| Listing detail | `avito_get_listing` | Read | Complete foundation | Current detail lookup is intentionally limited to the user's own listings or a supplied same-origin URL. |
+| Listing detail | `avito_get_listing` | Read | Complete foundation | A bare numeric ID is intentionally limited to the user's own listings; another listing requires its exact supplied same-origin URL. The server never constructs a URL from an ID. |
 | Own listing overview | `avito_my_listings` | Read | Complete foundation | Listing lifecycle, editing, reactivation, and price changes remain deferred writes. |
 | Favorites overview | `avito_favorites` | Read | Complete foundation | Add/remove favorites is valuable but must be a separately guarded write. |
 | Chat list and message history | `avito_chats`, `avito_chat_messages` | Read with caveat | Complete foundation | Opening a chat can make it read on Avito; no private messages belong in tests or issue reports. |
