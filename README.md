@@ -1,15 +1,31 @@
 # Avito Personal MCP
 
-Unofficial MCP server for interacting with Avito through your own authenticated browser session.
+Unofficial, local-first MCP server for **personal Avito accounts**. It lets an MCP-capable AI client work with your own Avito account through a dedicated browser session — **without requiring Avito Developer API credentials**.
 
 > [!IMPORTANT]
 > This project is independent and is not affiliated with, endorsed by, or maintained by Avito.
 
+## Why this project exists
+
+Many Avito integrations are built around official developer/business APIs or public listing parsing. Avito Personal MCP is aimed at a different use case: an ordinary user who wants an AI assistant to work with the Avito account they already use in the browser.
+
+The user signs in to Avito manually in a dedicated Chrome profile. The MCP server then attaches to that already authenticated browser over Chrome DevTools Protocol (CDP).
+
+**No Avito Developer `Client ID` or `Client Secret` is required.** The project also does **not** ask users to provide Avito passwords, SMS/OTP codes, cookies, authorization headers, session tokens, or exported browser storage state.
+
+This makes the project suitable for personal-account workflows such as:
+
+- searching Avito and inspecting individual listings;
+- reviewing your own listings;
+- reviewing your favorites;
+- reading your Avito conversations and message history;
+- preparing and explicitly confirming a message before it is sent.
+
+It is not intended to bypass Avito authentication, CAPTCHA, anti-bot controls, account restrictions, or access controls.
+
 ## What it does
 
-Avito Personal MCP exposes a local-first MCP interface over the user's own Avito web session. The user signs in manually in a dedicated Chrome profile; the MCP server attaches to that browser over Chrome DevTools Protocol (CDP).
-
-The project does **not** ask users to provide Avito passwords, SMS/OTP codes, cookies, authorization headers, session tokens, or exported browser storage state.
+Avito Personal MCP exposes a local-first MCP interface over the user's own Avito web session. Authentication remains in the dedicated browser controlled by the user rather than being copied into MCP configuration.
 
 ## Current MCP tools
 
@@ -130,6 +146,7 @@ Browser-driven operations are inherently coupled to Avito's current DOM. The pro
 ## Safety principles
 
 - Local-first authentication/session state.
+- No Avito Developer API credentials required for the current browser-session workflow.
 - No Avito credentials committed to the repository.
 - No CAPTCHA bypass, stealth circumvention, or automated OTP handling.
 - CDP stays on loopback only.
