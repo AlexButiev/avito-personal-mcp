@@ -6,14 +6,24 @@ The project follows semantic versioning. Release candidates use the `rc` prerele
 
 ## [Unreleased]
 
+## [0.1.0rc2] - 2026-08-31
+
+Second public release candidate. It promotes the packaged-client and
+data-minimization fixes after the first public tag was exercised through a real
+MCP client.
+
 ### Added
 
 - `avito-ai`, a read-only terminal bridge that calls the same installed MCP
   surface as other MCP clients.
 - Installed-package release smoke coverage for both console commands.
+- Gate 12 acceptance record with a non-secret, client-level test boundary.
 
 ### Changed
 
+- `avito-ai` now forwards only the documented non-secret
+  `AVITO_MCP_CDP_URL` override to its local stdio server, so an intentional
+  loopback CDP port change behaves exactly like direct server use.
 - `avito-ai` launches the installed `avito-personal-mcp` console command from
   its active Python environment instead of importing a repository checkout.
 - `avito_selfcheck` now returns aggregate tab state only, not browser tab URLs

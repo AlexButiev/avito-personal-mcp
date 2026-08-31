@@ -140,6 +140,14 @@ and all Avito authentication material outside the CLI configuration. The bridge
 currently exposes read-only commands only; guarded message sends remain available
 only through the explicit two-phase MCP tool.
 
+To use a different **loopback** CDP port, set the documented server setting for
+the individual command; `avito-ai` forwards only this setting to its child MCP
+server and does not forward other shell environment values:
+
+```bash
+AVITO_MCP_CDP_URL=http://127.0.0.1:9333 avito-ai selfcheck
+```
+
 ## Architecture
 
 ```text
@@ -223,7 +231,11 @@ GitHub Actions runs sanitized unit tests and Ruff on Python 3.11, 3.12, 3.13, an
 
 ## Project status
 
-`0.1.0rc1` is the first public release candidate. The read-only foundation and guarded message-send path are implemented, but browser-driven integrations can break when Avito changes its frontend. Treat the release candidate as experimental until the final release is promoted.
+`0.1.0rc2` is the current public release candidate. It adds the packaged
+`avito-ai` fallback, data-minimized diagnostics, and Gate 12 acceptance fixes to
+the original read-only foundation and guarded message-send path. Browser-driven
+integrations can still break when Avito changes its frontend, so treat the
+release candidate as experimental until the final release is promoted.
 
 See [CHANGELOG.md](CHANGELOG.md) for release notes and
 [docs/ROADMAP.md](docs/ROADMAP.md) for the capability boundary, safety model,

@@ -44,12 +44,27 @@ def installed_server_command() -> str:
     return str(command)
 
 
+def server_parameters() -> StdioServerParameters:
+    """Build the local stdio command without forwarding the user's environment.
+
+    The MCP stdio client intentionally starts a constrained child environment.
+    Forward only the one documented, non-secret server setting so ``avito-ai``
+    honours an intentional loopback CDP override without passing incidental
+    shell credentials or unrelated application configuration to the server.
+    """
+
+    cdp_url = os.environ.get("AVITO_MCP_CDP_URL")
+    server_env = {"AVITO_MCP_CDP_URL": cdp_url} if cdp_url else None
+    return StdioServerParameters(
+        command=installed_server_command(),
+        env=server_env,
+    )
+
+
 async def call_mcp_tool(name: str, arguments: dict[str, object] | None = None) -> Any:
     """Run one MCP tool call through a short-lived local stdio server."""
 
-    server = StdioServerParameters(
-        command=installed_server_command(),
-    )
+    server = server_parameters()
 
     async with stdio_client(server) as (read, write):
         async with ClientSession(read, write) as session:
