@@ -1,8 +1,17 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 
-from avito_personal_mcp.cli import build_parser, command_to_tool, render_result
+import pytest
+
+from avito_personal_mcp import cli
+from avito_personal_mcp.cli import (
+    build_parser,
+    command_to_tool,
+    installed_server_command,
+    render_result,
+)
 
 
 def parse(*argv: str) -> argparse.Namespace:
@@ -55,3 +64,32 @@ def test_pretty_output_preserves_unicode() -> None:
     output = render_result({"query": "мини ПК"}, compact=False)
     assert "мини ПК" in output
     assert "\\u" not in output
+
+
+def test_installed_server_command_uses_sibling_console_script(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scripts_dir = tmp_path / "bin"
+    scripts_dir.mkdir()
+    python_executable = scripts_dir / "python"
+    python_executable.touch()
+    server_command = scripts_dir / "avito-personal-mcp"
+    server_command.touch()
+    monkeypatch.setattr(cli.sys, "executable", str(python_executable))
+
+    assert installed_server_command() == str(server_command)
+
+
+def test_installed_server_command_fails_when_entry_point_is_missing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scripts_dir = tmp_path / "bin"
+    scripts_dir.mkdir()
+    python_executable = scripts_dir / "python"
+    python_executable.touch()
+    monkeypatch.setattr(cli.sys, "executable", str(python_executable))
+
+    with pytest.raises(RuntimeError, match="Install avito-personal-mcp"):
+        installed_server_command()

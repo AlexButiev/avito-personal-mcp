@@ -10,7 +10,9 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import sys
+from pathlib import Path
 from typing import Any
 
 from mcp import ClientSession, StdioServerParameters
@@ -18,12 +20,35 @@ from mcp.client.stdio import stdio_client
 from mcp.types import TextContent
 
 
+def installed_server_command() -> str:
+    """Return the installed MCP console entry point from this Python environment.
+
+    ``avito-ai`` is an end-user bridge, so it must launch the packaged
+    ``avito-personal-mcp`` command rather than importing a repository checkout
+    with ``python -m``. Keeping both commands beside the active Python
+    executable also avoids accidentally resolving a different installation via
+    ``PATH``.
+    """
+
+    script_name = "avito-personal-mcp.exe" if os.name == "nt" else "avito-personal-mcp"
+    # Do not resolve ``sys.executable``: virtual environments commonly expose
+    # ``python`` as a symlink to a system interpreter, while their console
+    # scripts live beside the symlink in the virtual environment's scripts dir.
+    command = Path(sys.executable).with_name(script_name)
+    if not command.is_file():
+        raise RuntimeError(
+            "Installed avito-personal-mcp console command was not found next to the "
+            f"current Python executable: {command}. Install avito-personal-mcp into this "
+            "environment before running avito-ai."
+        )
+    return str(command)
+
+
 async def call_mcp_tool(name: str, arguments: dict[str, object] | None = None) -> Any:
     """Run one MCP tool call through a short-lived local stdio server."""
 
     server = StdioServerParameters(
-        command=sys.executable,
-        args=["-m", "avito_personal_mcp.server"],
+        command=installed_server_command(),
     )
 
     async with stdio_client(server) as (read, write):

@@ -112,6 +112,26 @@ Use the actual absolute path to the installed console script on your machine. No
 
 Chrome and the MCP server are separate processes: start the dedicated Chrome session first, sign in manually if needed, then let the MCP client launch `avito-personal-mcp`.
 
+## Terminal fallback: `avito-ai`
+
+`avito-ai` is a small terminal client for the same local MCP surface. It is useful
+when the AI client cannot yet attach to the MCP server directly, or when you want
+to copy a compact, structured result into a chat.
+
+```bash
+avito-ai selfcheck
+avito-ai --compact search "мини ПК для HomeLab" --limit 10
+avito-ai listing 1234567890
+avito-ai messages CHAT_ID --limit 20
+```
+
+The command launches the installed `avito-personal-mcp` console entry point from
+the same Python environment, not a repository checkout or a private browser
+helper. It therefore exercises the packaged MCP path while keeping Chrome, CDP,
+and all Avito authentication material outside the CLI configuration. The bridge
+currently exposes read-only commands only; guarded message sends remain available
+only through the explicit two-phase MCP tool.
+
 ## Architecture
 
 ```text
@@ -197,7 +217,9 @@ GitHub Actions runs sanitized unit tests and Ruff on Python 3.11, 3.12, 3.13, an
 
 `0.1.0rc1` is the first public release candidate. The read-only foundation and guarded message-send path are implemented, but browser-driven integrations can break when Avito changes its frontend. Treat the release candidate as experimental until the final release is promoted.
 
-See [CHANGELOG.md](CHANGELOG.md) for release notes.
+See [CHANGELOG.md](CHANGELOG.md) for release notes and
+[docs/ROADMAP.md](docs/ROADMAP.md) for the capability boundary, safety model,
+and planned development order.
 
 ## License
 
