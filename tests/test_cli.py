@@ -11,6 +11,7 @@ from avito_personal_mcp.cli import (
     command_to_tool,
     installed_server_command,
     render_result,
+    server_parameters,
 )
 
 
@@ -93,3 +94,31 @@ def test_installed_server_command_fails_when_entry_point_is_missing(
 
     with pytest.raises(RuntimeError, match="Install avito-personal-mcp"):
         installed_server_command()
+
+
+def test_server_parameters_forwards_only_documented_cdp_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AVITO_MCP_CDP_URL", "http://127.0.0.1:9333")
+    monkeypatch.setenv("UNRELATED_SECRET_LIKE_VALUE", "must-not-be-forwarded")
+    monkeypatch.setattr(
+        "avito_personal_mcp.cli.installed_server_command",
+        lambda: "/tmp/avito-personal-mcp",
+    )
+
+    server = server_parameters()
+
+    assert server.command == "/tmp/avito-personal-mcp"
+    assert server.env == {"AVITO_MCP_CDP_URL": "http://127.0.0.1:9333"}
+
+
+def test_server_parameters_does_not_create_environment_without_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("AVITO_MCP_CDP_URL", raising=False)
+    monkeypatch.setattr(
+        "avito_personal_mcp.cli.installed_server_command",
+        lambda: "/tmp/avito-personal-mcp",
+    )
+
+    assert server_parameters().env is None
