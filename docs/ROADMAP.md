@@ -53,7 +53,7 @@ treated as a permanent product promise. See OpenAI's
 
 | User capability | Current state | Operation class | Priority | Preconditions / limits |
 | --- | --- | --- | --- | --- |
-| Connection and safe diagnostics | `avito_selfcheck` | Read | Complete foundation | No private data beyond tab metadata; CDP must stay loopback-only. |
+| Connection and safe diagnostics | `avito_selfcheck` | Read | Complete foundation | Returns aggregate tab state only, never tab URLs or titles; CDP must stay loopback-only. |
 | Current profile | `avito_me` | Read | Complete foundation | Fails closed on unavailable authentication. |
 | Search and result cards | `avito_search` | Read | High next read increment | Current version searches text only; structured filters, sort, location, and pagination require fresh DOM observation before implementation. |
 | Listing detail | `avito_get_listing` | Read | Complete foundation | Current detail lookup is intentionally limited to the user's own listings or a supplied same-origin URL. |

@@ -16,6 +16,8 @@ The project follows semantic versioning. Release candidates use the `rc` prerele
 
 - `avito-ai` launches the installed `avito-personal-mcp` console command from
   its active Python environment instead of importing a repository checkout.
+- `avito_selfcheck` now returns aggregate tab state only, not browser tab URLs
+  or titles.
 
 ## [0.1.0rc1] - 2026-08-31
 
