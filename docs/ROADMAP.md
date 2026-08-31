@@ -93,12 +93,14 @@ will execute against the user's browser session.
 
 ## Development order
 
-### Gate 12 — packaged-client acceptance
+### Gate 12 — packaged-client acceptance — complete in `v0.1.0rc2`
 
-Finish validating the existing release path from an installed console command,
-not a repository import. Confirm the direct CLI fallback, then validate a real
-MCP client against a deliberately prepared Chrome session without copying private
-chat content into project artifacts.
+The published `v0.1.0rc2` tag was installed in isolation and accepted through a
+generic MCP client and the direct CLI fallback, without a repository import.
+All current read tools, the guarded send preparation path, CDP-unavailable and
+unauthenticated-session failures, and MCP-client restart behavior were checked
+without putting private Avito data into project artifacts. See
+[ACCEPTANCE_GATE_12.md](ACCEPTANCE_GATE_12.md).
 
 ### Gate 13 — useful read-only search
 
