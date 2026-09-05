@@ -17,6 +17,7 @@ class SearchDiscoveryError(RuntimeError):
 
 
 LISTING_ID_RE = re.compile(r"_(\d+)(?:\?|$)")
+PRICE_TEXT_RE = re.compile(r"\d[\d\s\u00a0]*")
 
 # These values are not URL parameters. They are the data markers observed on
 # Avito's rendered sort menu. Keeping the public API as logical names means a
@@ -116,6 +117,48 @@ def normalize_search_result(raw: dict[str, Any], origin: str) -> dict[str, Any]:
     }
 
 
+def _display_price_as_int(value: object) -> int | None:
+    """Extract the first displayed whole-ruble amount from an Avito price."""
+
+    if not isinstance(value, str):
+        return None
+    match = PRICE_TEXT_RE.search(value)
+    if match is None:
+        return None
+    digits = "".join(filter(str.isdigit, match.group()))
+    return int(digits) if digits else None
+
+
+def _validate_observed_result_options(
+    results: list[dict[str, Any]],
+    options: SearchOptions,
+) -> None:
+    """Fail closed if rendered cards contradict an explicitly requested option."""
+
+    has_price_constraint = (
+        options["min_price"] is not None or options["max_price"] is not None
+    )
+    needs_ordered_price = options["sort"] == "price_asc"
+    if not has_price_constraint and not needs_ordered_price:
+        return
+
+    prices: list[int] = []
+    for result in results:
+        price = _display_price_as_int(result.get("price"))
+        if price is None:
+            raise SearchDiscoveryError(
+                "Avito returned a result without a readable price for the requested filter"
+            )
+        if options["min_price"] is not None and price < options["min_price"]:
+            raise SearchDiscoveryError("Avito returned a result below the requested minimum price")
+        if options["max_price"] is not None and price > options["max_price"]:
+            raise SearchDiscoveryError("Avito returned a result above the requested maximum price")
+        prices.append(price)
+
+    if needs_ordered_price and prices != sorted(prices):
+        raise SearchDiscoveryError("Avito results are not ordered by ascending displayed price")
+
+
 async def _results_ready(page: Page, serp_selector: str, title_selector: str) -> bool:
     """Return whether the current live document contains hydrated Avito results."""
 
@@ -180,6 +223,12 @@ async def _apply_price_filter(
         # Compact layout: the inputs live inside an observed popup.
         await filters_button.click()
 
+    # The populated SERP is visible before Avito has always completed the
+    # client-side initialization of its reactive range widget. Let the visible
+    # controls settle before changing either value; otherwise the later widget
+    # initialization can overwrite a value which Playwright just entered.
+    await page.wait_for_timeout(1_500)
+
     price_from = page.locator(PRICE_FROM_SELECTOR).first
     price_to = page.locator(PRICE_TO_SELECTOR).first
     if not await price_from.count() or not await price_to.count():
@@ -187,9 +236,9 @@ async def _apply_price_filter(
 
     # The search always starts from Avito's normal home page. Explicitly
     # clearing an unspecified bound also avoids inheriting an unexpected UI
-    # value if Avito restores a filter during page navigation. Avito's current
-    # range widget can clear the lower bound when its upper bound changes, so
-    # update the upper value first and commit from the lower field last.
+    # value if Avito restores a filter during page navigation. The observed
+    # widget keeps both values when the upper value is set before the lower
+    # value and the lower field commits the completed range.
     await price_to.fill("" if max_price is None else str(max_price))
     await price_from.fill("" if min_price is None else str(min_price))
 
@@ -206,6 +255,15 @@ async def _apply_price_filter(
         # Enter; there is no popup or synthetic URL parameter to construct.
         await price_from.press("Enter")
     await _wait_for_serp_refresh(page, before_url, "price filter")
+
+    for label, field, expected in (
+        ("minimum", price_from, min_price),
+        ("maximum", price_to, max_price),
+    ):
+        actual_digits = "".join(filter(str.isdigit, await field.input_value()))
+        expected_digits = "" if expected is None else str(expected)
+        if actual_digits != expected_digits:
+            raise SearchDiscoveryError(f"Avito did not retain the requested {label} price")
 
 
 async def _apply_sort(page: Page, sort: str) -> None:
@@ -254,19 +312,20 @@ async def _submit_search_form(page: Page, origin: str, query: str) -> None:
         raise SearchDiscoveryError("Avito search form did not match the observed page structure")
 
     await search_input.fill(query)
+
+    # Avito can render an enabled button before the client-side search action
+    # has finished attaching after a value change. Waiting for that observed UI
+    # settling interval before the one normal click is more reliable than
+    # guessing URL state or issuing a duplicate action.
+    await page.wait_for_timeout(1_500)
     before_url = page.url
     await submit_button.click()
-
-    # Avito can render the enabled search button before its client-side handler
-    # is ready. The first observed click can therefore be ignored while the
-    # document stays at home. A second click on the same visible control after
-    # a short UI-settling interval is a safe, idempotent recovery for a search;
-    # it neither constructs a URL nor changes account state.
     try:
-        await page.wait_for_url(lambda url: str(url) != before_url, timeout=5_000)
-    except PlaywrightTimeoutError:
-        await page.wait_for_timeout(1_500)
-        await submit_button.click()
+        await page.wait_for_url(lambda url: str(url) != before_url, timeout=10_000)
+    except PlaywrightTimeoutError as exc:
+        raise SearchDiscoveryError(
+            "Avito search action did not navigate from the home page"
+        ) from exc
 
     # Avito briefly passes through an intermediate blank DOM before the final
     # SERP hydrates. Poll the live document and require both the root and at
@@ -375,4 +434,5 @@ async def search_avito(
         except SearchDiscoveryError:
             continue
 
+    _validate_observed_result_options(results, options)
     return results
