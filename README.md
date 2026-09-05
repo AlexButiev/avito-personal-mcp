@@ -116,9 +116,12 @@ Chrome and the MCP server are separate processes: start the dedicated Chrome ses
 
 On one Mac, the ChatGPT desktop app, Codex CLI, and the Codex IDE extension can
 share the same `~/.codex/config.toml` MCP configuration. Add the installed
-`avito-personal-mcp` command there, restart the client, and verify that `/mcp`
-lists `avito`. You can then use ordinary requests such as “find three laptops
-under 70,000 roubles” rather than invoking `avito-ai` manually.
+`avito-personal-mcp` command there and restart the client; `/mcp` listing
+`avito` verifies that the server can launch. It does not by itself make Avito
+available in an ordinary ChatGPT conversation. For that experience, install
+the matching local `Avito Personal` plugin, start a new ordinary chat, and
+first confirm a safe `avito_selfcheck` call before relying on natural-language
+requests.
 
 Keep `avito_send_message` on prompt/approval and leave
 `avito_chat_messages` on prompt unless you accept Avito's normal behaviour that

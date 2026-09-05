@@ -24,9 +24,11 @@ personal users to give this project developer credentials.
 
 ## Chosen interaction model
 
-1. **Immediate target: local Codex and ChatGPT desktop use.** These clients can
-   share a local stdio MCP configuration on the same Mac, so the normal-language
-   Avito workflow is useful before a web connection is available.
+1. **Immediate target: local Codex and ChatGPT desktop use.** A local stdio
+   MCP configuration is necessary but does not automatically expose tools in an
+   ordinary ChatGPT chat. Package and install the local plugin, then require a
+   fresh-chat tool invocation as the acceptance proof before calling this path
+   usable.
 2. **Web target: ChatGPT with a private MCP connection.** OpenAI's
    [Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)
    can forward an existing local stdio MCP server through an outbound-only
