@@ -112,6 +112,20 @@ Use the actual absolute path to the installed console script on your machine. No
 
 Chrome and the MCP server are separate processes: start the dedicated Chrome session first, sign in manually if needed, then let the MCP client launch `avito-personal-mcp`.
 
+### Codex and ChatGPT desktop app
+
+On one Mac, the ChatGPT desktop app, Codex CLI, and the Codex IDE extension can
+share the same `~/.codex/config.toml` MCP configuration. Add the installed
+`avito-personal-mcp` command there, restart the client, and verify that `/mcp`
+lists `avito`. You can then use ordinary requests such as “find three laptops
+under 70,000 roubles” rather than invoking `avito-ai` manually.
+
+Keep `avito_send_message` on prompt/approval and leave
+`avito_chat_messages` on prompt unless you accept Avito's normal behaviour that
+opening a conversation can mark it read. The configuration and the separate
+private Secure MCP Tunnel route for ChatGPT on the web are documented in
+[docs/CHATGPT_CONNECTION.md](docs/CHATGPT_CONNECTION.md).
+
 ## Terminal fallback: `avito-ai`
 
 `avito-ai` is a small terminal client for the same local MCP surface. It is useful
@@ -250,18 +264,18 @@ GitHub Actions runs sanitized unit tests and Ruff on Python 3.11, 3.12, 3.13, an
 
 ## Project status
 
-`0.1.0rc2` is the current public release candidate. It adds the packaged
-`avito-ai` fallback, data-minimized diagnostics, and Gate 12 acceptance fixes to
-the original read-only foundation and guarded message-send path. Browser-driven
-integrations can still break when Avito changes its frontend, so treat the
-release candidate as experimental until the final release is promoted.
+`0.1.0rc3` is the current public release candidate. It adds the packaged
+`avito-ai` fallback, data-minimized diagnostics, Gate 12 acceptance fixes, and
+the first stable price/sort search controls to the read-only foundation and
+guarded message-send path. Browser-driven integrations can still break when
+Avito changes its frontend, so treat the release candidate as experimental until
+the final release is promoted.
 
 See [CHANGELOG.md](CHANGELOG.md) for release notes and
 [docs/ROADMAP.md](docs/ROADMAP.md) for the capability boundary, safety model,
 and planned development order. See
-[docs/CHATGPT_CONNECTION.md](docs/CHATGPT_CONNECTION.md) for the current
-ChatGPT/Plus availability boundary and the private-tunnel runbook for a future
-eligible workspace.
+[docs/CHATGPT_CONNECTION.md](docs/CHATGPT_CONNECTION.md) for the local desktop
+connection and the private-tunnel runbook for ChatGPT on the web.
 
 ## License
 
