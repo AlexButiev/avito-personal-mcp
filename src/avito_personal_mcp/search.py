@@ -253,21 +253,18 @@ async def _submit_search_form(page: Page, origin: str, query: str) -> None:
 
     await search_input.fill(query)
     before_url = page.url
-
-    # The live browser screenshot confirms that filling the field opens Avito's
-    # suggestion panel and that the explicit blue submit button remains present.
-    # Clicking that observed control is less ambiguous than Enter, which can be
-    # consumed by autocomplete and leave the query filled without submitting.
     await submit_button.click()
 
+    # Avito can render the enabled search button before its client-side handler
+    # is ready. The first observed click can therefore be ignored while the
+    # document stays at home. A second click on the same visible control after
+    # a short UI-settling interval is a safe, idempotent recovery for a search;
+    # it neither constructs a URL nor changes account state.
     try:
         await page.wait_for_url(lambda url: str(url) != before_url, timeout=5_000)
     except PlaywrightTimeoutError:
-        # Fallback to the same normal UI action previously confirmed during
-        # reconnaissance if Avito did not react to the button click.
-        current_input = page.locator(SEARCH_INPUT_SELECTOR).first
-        if await current_input.count():
-            await current_input.press("Enter")
+        await page.wait_for_timeout(1_500)
+        await submit_button.click()
 
     # Avito briefly passes through an intermediate blank DOM before the final
     # SERP hydrates. Poll the live document and require both the root and at
