@@ -1,5 +1,4 @@
 import pytest
-from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 from avito_personal_mcp import search
 from avito_personal_mcp.search import (
@@ -12,6 +11,7 @@ from avito_personal_mcp.search import (
     TITLE_SELECTOR,
     SearchDiscoveryError,
     _submit_search_form,
+    _validate_observed_result_options,
     normalize_search_result,
     validate_search_options,
 )
@@ -121,6 +121,22 @@ def test_normalize_search_result_accepts_absolute_same_origin_url() -> None:
     assert result["url"] == "https://www.avito.ru/item_1234567890"
 
 
+def test_observed_result_options_reject_cards_outside_price_bounds() -> None:
+    with pytest.raises(SearchDiscoveryError, match="below the requested minimum"):
+        _validate_observed_result_options(
+            [{"price": "14 999 ₽"}],
+            {"min_price": 15_000, "max_price": 35_000, "sort": "price_asc"},
+        )
+
+
+def test_observed_result_options_reject_nonascending_price_order() -> None:
+    with pytest.raises(SearchDiscoveryError, match="not ordered by ascending"):
+        _validate_observed_result_options(
+            [{"price": "20 000 ₽"}, {"price": "19 900 ₽"}],
+            {"min_price": None, "max_price": None, "sort": "price_asc"},
+        )
+
+
 @pytest.mark.parametrize(
     "href",
     [
@@ -141,8 +157,8 @@ def test_normalize_search_result_rejects_off_origin_url(href: str) -> None:
 
 
 @pytest.mark.asyncio
-async def test_submit_search_retries_the_visible_button_after_a_readying_click() -> None:
-    """A harmless second click recovers when Avito ignores the first one."""
+async def test_submit_search_waits_for_readiness_before_one_visible_click() -> None:
+    """The observed client-side action is ready after the settle interval."""
 
     class FakeResponse:
         status = 200
@@ -158,7 +174,7 @@ async def test_submit_search_retries_the_visible_button_after_a_readying_click()
 
         async def count(self) -> int:
             if self.selector in {SERP_SELECTOR, TITLE_SELECTOR}:
-                return int(self.page.submit_clicks >= 2)
+                return int(self.page.submit_clicks == 1)
             return 1
 
         async def fill(self, value: str) -> None:
@@ -167,9 +183,9 @@ async def test_submit_search_retries_the_visible_button_after_a_readying_click()
 
         async def click(self) -> None:
             assert self.selector == SEARCH_SUBMIT_SELECTOR
+            assert self.page.settling_waits == [1_500]
             self.page.submit_clicks += 1
-            if self.page.submit_clicks == 2:
-                self.page.url = "https://www.avito.ru/syktyvkar/noutbuki"
+            self.page.url = "https://www.avito.ru/syktyvkar/noutbuki"
 
     class FakePage:
         def __init__(self) -> None:
@@ -187,8 +203,7 @@ async def test_submit_search_retries_the_visible_button_after_a_readying_click()
 
         async def wait_for_url(self, predicate: object, **_: object) -> None:
             assert callable(predicate)
-            if not predicate(self.url):
-                raise PlaywrightTimeoutError("the first click was ignored")
+            assert predicate(self.url)
 
         async def wait_for_timeout(self, timeout: int) -> None:
             self.settling_waits.append(timeout)
@@ -198,7 +213,7 @@ async def test_submit_search_retries_the_visible_button_after_a_readying_click()
     await _submit_search_form(page, "https://www.avito.ru", "ноутбук")
 
     assert page.filled_query == "ноутбук"
-    assert page.submit_clicks == 2
+    assert page.submit_clicks == 1
     assert page.settling_waits == [1_500]
     assert page.url == "https://www.avito.ru/syktyvkar/noutbuki"
 
@@ -226,9 +241,13 @@ async def test_price_filter_updates_upper_bound_before_lower_and_commits_lower(
 
         async def fill(self, value: str) -> None:
             self.page.fills.append((self.selector, value))
+            self.page.values[self.selector] = value
 
         async def press(self, key: str) -> None:
             self.page.presses.append((self.selector, key))
+
+        async def input_value(self) -> str:
+            return self.page.values[self.selector]
 
     class FakePage:
         url = "https://www.avito.ru/syktyvkar/noutbuki"
@@ -236,9 +255,14 @@ async def test_price_filter_updates_upper_bound_before_lower_and_commits_lower(
         def __init__(self) -> None:
             self.fills: list[tuple[str, str]] = []
             self.presses: list[tuple[str, str]] = []
+            self.values = {PRICE_FROM_SELECTOR: "", PRICE_TO_SELECTOR: ""}
+            self.waits: list[int] = []
 
         def locator(self, selector: str) -> FakeLocator:
             return FakeLocator(self, selector)
+
+        async def wait_for_timeout(self, timeout: int) -> None:
+            self.waits.append(timeout)
 
     page = FakePage()
     refreshes: list[tuple[str, str]] = []
@@ -259,4 +283,5 @@ async def test_price_filter_updates_upper_bound_before_lower_and_commits_lower(
         (PRICE_FROM_SELECTOR, "15000"),
     ]
     assert page.presses == [(PRICE_FROM_SELECTOR, "Enter")]
+    assert page.waits == [1_500]
     assert refreshes == [(page.url, "price filter")]
