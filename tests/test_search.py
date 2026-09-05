@@ -1,7 +1,13 @@
 import pytest
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 from avito_personal_mcp.search import (
+    SEARCH_INPUT_SELECTOR,
+    SEARCH_SUBMIT_SELECTOR,
+    SERP_SELECTOR,
+    TITLE_SELECTOR,
     SearchDiscoveryError,
+    _submit_search_form,
     normalize_search_result,
     validate_search_options,
 )
@@ -128,3 +134,66 @@ def test_normalize_search_result_rejects_off_origin_url(href: str) -> None:
             },
             "https://www.avito.ru",
         )
+
+
+@pytest.mark.asyncio
+async def test_submit_search_retries_the_visible_button_after_a_readying_click() -> None:
+    """A harmless second click recovers when Avito ignores the first one."""
+
+    class FakeResponse:
+        status = 200
+
+    class FakeLocator:
+        def __init__(self, page: "FakePage", selector: str) -> None:
+            self.page = page
+            self.selector = selector
+
+        @property
+        def first(self) -> "FakeLocator":
+            return self
+
+        async def count(self) -> int:
+            if self.selector in {SERP_SELECTOR, TITLE_SELECTOR}:
+                return int(self.page.submit_clicks >= 2)
+            return 1
+
+        async def fill(self, value: str) -> None:
+            assert self.selector == SEARCH_INPUT_SELECTOR
+            self.page.filled_query = value
+
+        async def click(self) -> None:
+            assert self.selector == SEARCH_SUBMIT_SELECTOR
+            self.page.submit_clicks += 1
+            if self.page.submit_clicks == 2:
+                self.page.url = "https://www.avito.ru/syktyvkar/noutbuki"
+
+    class FakePage:
+        def __init__(self) -> None:
+            self.url = "https://www.avito.ru"
+            self.filled_query: str | None = None
+            self.submit_clicks = 0
+            self.settling_waits: list[int] = []
+
+        async def goto(self, url: str, **_: object) -> FakeResponse:
+            self.url = url
+            return FakeResponse()
+
+        def locator(self, selector: str) -> FakeLocator:
+            return FakeLocator(self, selector)
+
+        async def wait_for_url(self, predicate: object, **_: object) -> None:
+            assert callable(predicate)
+            if not predicate(self.url):
+                raise PlaywrightTimeoutError("the first click was ignored")
+
+        async def wait_for_timeout(self, timeout: int) -> None:
+            self.settling_waits.append(timeout)
+
+    page = FakePage()
+
+    await _submit_search_form(page, "https://www.avito.ru", "ноутбук")
+
+    assert page.filled_query == "ноутбук"
+    assert page.submit_clicks == 2
+    assert page.settling_waits == [1_500]
+    assert page.url == "https://www.avito.ru/syktyvkar/noutbuki"
