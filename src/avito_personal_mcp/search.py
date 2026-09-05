@@ -187,9 +187,11 @@ async def _apply_price_filter(
 
     # The search always starts from Avito's normal home page. Explicitly
     # clearing an unspecified bound also avoids inheriting an unexpected UI
-    # value if Avito restores a filter during page navigation.
-    await price_from.fill("" if min_price is None else str(min_price))
+    # value if Avito restores a filter during page navigation. Avito's current
+    # range widget can clear the lower bound when its upper bound changes, so
+    # update the upper value first and commit from the lower field last.
     await price_to.fill("" if max_price is None else str(max_price))
+    await price_from.fill("" if min_price is None else str(min_price))
 
     before_url = page.url
     if compact_layout:
@@ -200,9 +202,9 @@ async def _apply_price_filter(
             raise SearchDiscoveryError("Avito price filter did not match the observed popup")
         await confirm_button.click()
     else:
-        # Expanded layout: the same observed inputs apply through Enter; there
-        # is no popup or synthetic URL parameter to construct.
-        await price_to.press("Enter")
+        # Expanded layout: apply from the last-updated lower field through
+        # Enter; there is no popup or synthetic URL parameter to construct.
+        await price_from.press("Enter")
     await _wait_for_serp_refresh(page, before_url, "price filter")
 
 

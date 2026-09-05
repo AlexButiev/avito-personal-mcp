@@ -1,7 +1,11 @@
 import pytest
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
+from avito_personal_mcp import search
 from avito_personal_mcp.search import (
+    FILTERS_BUTTON_SELECTOR,
+    PRICE_FROM_SELECTOR,
+    PRICE_TO_SELECTOR,
     SEARCH_INPUT_SELECTOR,
     SEARCH_SUBMIT_SELECTOR,
     SERP_SELECTOR,
@@ -197,3 +201,62 @@ async def test_submit_search_retries_the_visible_button_after_a_readying_click()
     assert page.submit_clicks == 2
     assert page.settling_waits == [1_500]
     assert page.url == "https://www.avito.ru/syktyvkar/noutbuki"
+
+
+@pytest.mark.asyncio
+async def test_price_filter_updates_upper_bound_before_lower_and_commits_lower(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Preserve both bounds in Avito's reactive expanded price widget."""
+
+    class FakeLocator:
+        def __init__(self, page: "FakePage", selector: str) -> None:
+            self.page = page
+            self.selector = selector
+
+        @property
+        def first(self) -> "FakeLocator":
+            return self
+
+        async def count(self) -> int:
+            return 1
+
+        async def is_visible(self) -> bool:
+            return self.selector != FILTERS_BUTTON_SELECTOR
+
+        async def fill(self, value: str) -> None:
+            self.page.fills.append((self.selector, value))
+
+        async def press(self, key: str) -> None:
+            self.page.presses.append((self.selector, key))
+
+    class FakePage:
+        url = "https://www.avito.ru/syktyvkar/noutbuki"
+
+        def __init__(self) -> None:
+            self.fills: list[tuple[str, str]] = []
+            self.presses: list[tuple[str, str]] = []
+
+        def locator(self, selector: str) -> FakeLocator:
+            return FakeLocator(self, selector)
+
+    page = FakePage()
+    refreshes: list[tuple[str, str]] = []
+
+    async def fake_wait_for_serp_refresh(
+        _: FakePage,
+        before_url: str,
+        operation: str,
+    ) -> None:
+        refreshes.append((before_url, operation))
+
+    monkeypatch.setattr(search, "_wait_for_serp_refresh", fake_wait_for_serp_refresh)
+
+    await search._apply_price_filter(page, 15_000, 35_000)
+
+    assert page.fills == [
+        (PRICE_TO_SELECTOR, "35000"),
+        (PRICE_FROM_SELECTOR, "15000"),
+    ]
+    assert page.presses == [(PRICE_FROM_SELECTOR, "Enter")]
+    assert refreshes == [(page.url, "price filter")]
