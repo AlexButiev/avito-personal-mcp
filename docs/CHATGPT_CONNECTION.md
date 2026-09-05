@@ -11,10 +11,12 @@ sanitized acceptance client.
 
 There are two distinct ways to use the same installed server:
 
-1. **This Mac: Codex, ChatGPT desktop app, or a compatible IDE client.** These
-   local clients support stdio MCP servers and share the Codex host's MCP
-   configuration. This is the immediate path for natural-language Avito work on
-   the Mac, and does not need a tunnel or an Avito developer credential.
+1. **This Mac: a local Codex plugin in the ChatGPT desktop app.** The raw stdio
+   MCP configuration can launch the server, but that alone does not prove that
+   an ordinary ChatGPT conversation receives its tools. The server must also
+   be packaged and installed as a local plugin, then accepted in a fresh
+   ordinary chat. This is the immediate path for natural-language Avito work
+   on the Mac, and does not need a tunnel or an Avito developer credential.
 2. **ChatGPT on the web: a private developer-mode app over Secure MCP Tunnel.**
    The tunnel client runs inside the same local trust boundary as Chrome and
    opens only an outbound HTTPS connection to OpenAI. It forwards MCP JSON-RPC
@@ -29,7 +31,8 @@ authentication/threat model.
 | Needed outcome | Status | Safety boundary |
 | --- | --- | --- |
 | `avito-ai` and another local stdio MCP client | Supported | Dedicated Chrome profile, CDP on loopback only. |
-| Codex or ChatGPT desktop app on this Mac | Supported configuration path | The app must restart after adding the server, then list `avito` in `/mcp`. |
+| Raw local MCP configuration | Server-launch path only | It is not evidence that ordinary ChatGPT conversations see Avito tools. |
+| Local ChatGPT/Codex plugin on this Mac | Installed locally; ordinary-chat acceptance pending | Restart the desktop app, start a new ordinary chat, and verify that `Avito Personal` is offered as a tool before relying on it. |
 | ChatGPT web through Secure MCP Tunnel | Officially documented architecture; not yet accepted for this account | Requires a Platform tunnel, a runtime API key, target-workspace association, and ChatGPT developer-mode access. |
 | Sending a message | Deliberately guarded | The server still requires its two-phase exact-target confirmation; host approvals are defence in depth, not a replacement. |
 | Public plugin/directory distribution | Deferred | A tunnel is private-only and must not become a public gateway for the browser session. |
@@ -70,10 +73,12 @@ opening a conversation can mark it read even though the MCP itself does not
 send, edit, or delete a message.
 
 Restart the local client after saving the configuration. In the Codex terminal
-UI or desktop composer, `/mcp` should show the enabled `avito` server. Begin
-acceptance with `avito_selfcheck`, then use a normal language request such as
-“find three laptops under 70,000 roubles” or “show my current listings.” Do not
-put passwords, cookies, OAuth values, or browser-storage exports in the config.
+UI, `/mcp` should show the enabled `avito` server. This verifies only the
+server-launch path. Do not represent that as ordinary ChatGPT-chat acceptance:
+install the matching local plugin, start a new ordinary chat, and confirm that
+the chat can actually invoke `avito_selfcheck` before using a natural-language
+request. Do not put passwords, cookies, OAuth values, or browser-storage
+exports in the config.
 
 ## Web ChatGPT route when the account UI permits it
 
@@ -111,10 +116,12 @@ record the exact visible limitation; do not attempt a workaround.
 
 ## Acceptance and privacy boundary
 
-For desktop, acceptance means the restarted client discovers `avito`, invokes
-`avito_selfcheck`, and completes the intended safe read tool through the
-installed package. For the web route, it additionally requires the active
-`tunnel-client` and a real developer-mode ChatGPT invocation.
+For local desktop ChatGPT, acceptance means a fresh ordinary chat discovers the
+installed `Avito Personal` plugin, invokes `avito_selfcheck`, and completes the
+intended safe read tool through the installed package. The raw MCP listing is a
+diagnostic prerequisite, not an acceptance result. For the web route, it
+additionally requires the active `tunnel-client` and a real developer-mode
+ChatGPT invocation.
 
 Do not place profile data, listing data, chat IDs, private message contents,
 runtime keys, or browser-session material in issues, logs, screenshots,
