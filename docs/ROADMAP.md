@@ -24,22 +24,25 @@ personal users to give this project developer credentials.
 
 ## Chosen interaction model
 
-1. **Primary target: ChatGPT with a private MCP connection.** OpenAI's
+1. **Immediate target: local Codex and ChatGPT desktop use.** These clients can
+   share a local stdio MCP configuration on the same Mac, so the normal-language
+   Avito workflow is useful before a web connection is available.
+2. **Web target: ChatGPT with a private MCP connection.** OpenAI's
    [Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)
    can forward an existing local stdio MCP server through an outbound-only
    connection without opening the user's CDP port or MCP server to the Internet.
    This means the current local-first architecture should be validated before a
    custom remote server is built.
-2. **Reliable fallback: direct stdio clients and `avito-ai`.** The packaged CLI
+3. **Reliable fallback: direct stdio clients and `avito-ai`.** The packaged CLI
    stays useful where ChatGPT developer-mode access, a tunnel, or a compatible
-   plan is unavailable. It invokes the same public MCP tools rather than
+   workspace is unavailable. It invokes the same public MCP tools rather than
    importing internal browser helpers.
-3. **No public ChatGPT plugin yet.** Public distribution requires a stable
+4. **No public ChatGPT plugin yet.** Public distribution requires a stable
    public HTTPS MCP endpoint and OAuth; a tunnel is intentionally only for
    private connections. Building a public gateway before the personal-session
    permission model is proven would increase the attack surface without helping
    the current user.
-4. **Optional UI only after tool acceptance.** ChatGPT can render optional
+5. **Optional UI only after tool acceptance.** ChatGPT can render optional
    [MCP Apps UI resources](https://developers.openai.com/plugins/build/chatgpt-ui)
    for comparison and confirmation flows. Every operation must remain usable as
    a structured tool result, since the UI is not guaranteed in every MCP host.
@@ -50,7 +53,8 @@ treated as a permanent product promise. See OpenAI's
 [developer-mode guidance](https://help.openai.com/en/articles/12584461-developer-mode-and-full-mcp-connectors-in-chatgpt).
 The owner-facing status and a future tunnel runbook are kept in
 [CHATGPT_CONNECTION.md](CHATGPT_CONNECTION.md); they deliberately distinguish
-the current ChatGPT Plus limitation from project readiness.
+account/UI eligibility from project readiness rather than treating a plan name
+as a permanent product limit.
 
 ## Capability map
 

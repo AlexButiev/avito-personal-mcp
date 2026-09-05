@@ -1,77 +1,127 @@
-# ChatGPT connection status
+# ChatGPT and Codex connection status
 
-Last reviewed: 2026-08-31.
+Last reviewed: 2026-09-05.
 
 ## Current decision
 
-Keep `avito-personal-mcp` as a private, local stdio server. Do not expose the
-Chrome CDP port, the MCP server, or a browser profile to the Internet. When the
-right ChatGPT workspace access is available, use OpenAI Secure MCP Tunnel as the
-transport: its client runs on the same Mac, opens an outbound HTTPS connection
-to OpenAI, and forwards MCP JSON-RPC to the installed local server. It does not
-make a public plugin or public endpoint.
+Keep `avito-personal-mcp` private and local-first. Neither the Chrome CDP port,
+the MCP server, nor the dedicated browser profile is exposed to the LAN or the
+Internet. `avito-ai` remains the supported terminal fallback and a useful
+sanitized acceptance client.
 
-`avito-ai` remains the supported local fallback and is also useful for a
-sanitized terminal acceptance check while direct ChatGPT connection is
-unavailable.
+There are two distinct ways to use the same installed server:
 
-## Availability as of this review
+1. **This Mac: Codex, ChatGPT desktop app, or a compatible IDE client.** These
+   local clients support stdio MCP servers and share the Codex host's MCP
+   configuration. This is the immediate path for natural-language Avito work on
+   the Mac, and does not need a tunnel or an Avito developer credential.
+2. **ChatGPT on the web: a private developer-mode app over Secure MCP Tunnel.**
+   The tunnel client runs inside the same local trust boundary as Chrome and
+   opens only an outbound HTTPS connection to OpenAI. It forwards MCP JSON-RPC
+   to the private local server; it must never forward CDP `127.0.0.1:9222`.
 
-The owner currently uses **ChatGPT Plus**. OpenAI's current developer-mode
-guidance expressly documents custom MCP read/fetch access for **Pro** and full
-MCP, including modify/write actions, for **Business** and **Enterprise/Edu**.
-It does not list Plus for custom MCP developer-mode connections. Therefore this
-repository does not claim that ChatGPT Plus can connect to this server, and no
-ChatGPT-side configuration was attempted or treated as an acceptance result.
+The second path is private testing and use, not public plugin distribution. A
+public plugin would need a separate, stable public HTTPS endpoint and its own
+authentication/threat model.
 
-| Needed outcome | Current availability on Plus | Project posture |
+## What is available now
+
+| Needed outcome | Status | Safety boundary |
 | --- | --- | --- |
-| Local use through `avito-ai` or another stdio MCP client | Available | Supported and used for acceptance. |
-| Direct ChatGPT custom MCP app using read/fetch tools | Not documented for Plus | Keep the server ready; re-check if the account gains Pro or a qualifying workspace. |
-| Direct ChatGPT write/modify tools | Not available | Keep server-side confirmation safeguards, but do not depend on ChatGPT UI approval. |
-| Public ChatGPT plugin/directory distribution | Not a tunnel use case | Deferred; would require a separate public HTTPS/OAuth architecture and threat model. |
+| `avito-ai` and another local stdio MCP client | Supported | Dedicated Chrome profile, CDP on loopback only. |
+| Codex or ChatGPT desktop app on this Mac | Supported configuration path | The app must restart after adding the server, then list `avito` in `/mcp`. |
+| ChatGPT web through Secure MCP Tunnel | Officially documented architecture; not yet accepted for this account | Requires a Platform tunnel, a runtime API key, target-workspace association, and ChatGPT developer-mode access. |
+| Sending a message | Deliberately guarded | The server still requires its two-phase exact-target confirmation; host approvals are defence in depth, not a replacement. |
+| Public plugin/directory distribution | Deferred | A tunnel is private-only and must not become a public gateway for the browser session. |
 
-These product limits can change. Re-check the official OpenAI documentation and
-the account UI before provisioning a tunnel or changing the advertised support
-level.
+The account currently uses ChatGPT Plus. OpenAI describes developer-mode access
+as plan- and workspace-specific; do not infer eligibility from the plan name or
+from this document. The only authoritative check is whether the signed-in
+ChatGPT account exposes developer mode and whether the matching Platform
+organization permits the required tunnel actions. If the web route is not
+available, that does not limit the local desktop route or the project's
+development.
 
-## Ready-to-run path when access becomes available
+## Immediate local-desktop setup
 
-This is deliberately a runbook, not proof that it works on Plus:
+Install the package, start the dedicated Chrome session, and add this local
+server to the Codex host configuration at `~/.codex/config.toml` (use the real
+absolute path for this Mac):
 
-1. Use a personal OpenAI Platform organization associated with the same account
-   and obtain permission to create/use a tunnel. A tunnel requires a
-   `tunnel_id`, a runtime API key for `tunnel-client`, and an associated ChatGPT
-   workspace.
-2. Install `tunnel-client` from OpenAI's current tunnel settings/download path.
-   Keep its runtime API key in the operating-system secret mechanism or shell
-   environment only; never put it in this repository, MCP configuration, or a
-   browser profile.
-3. Configure `tunnel-client` on the Mac with the absolute installed command for
-   `avito-personal-mcp` as its local stdio command. Do not point it at a source
-   checkout and do not publish CDP `127.0.0.1:9222` through the tunnel.
-4. Run `tunnel-client doctor --profile <profile> --explain`, then keep
-   `tunnel-client run --profile <profile>` healthy. Its loopback-only admin UI
-   may be used locally for health diagnostics only.
-5. In ChatGPT **on the web**, create a developer-mode app, select **Tunnel** as
-   its connection, select the associated tunnel, and scan the tools. Start
-   acceptance with `avito_selfcheck`, then the read tools only.
+```toml
+[mcp_servers.avito]
+command = "/absolute/path/to/.venv/bin/avito-personal-mcp"
+startup_timeout_sec = 20
+tool_timeout_sec = 60
+enabled = true
+default_tools_approval_mode = "prompt"
 
-Do not include `avito_send_message` in a ChatGPT acceptance on a plan limited to
-read/fetch. If a future eligible workspace enables write tools, the server's
-two-phase exact-target confirmation remains mandatory and a live send still
-needs immediate owner approval of the exact target and text.
+# Safe examples: enable routine read tools without a prompt.
+[mcp_servers.avito.tools.avito_search]
+approval_mode = "auto"
 
-## Acceptance boundary
+[mcp_servers.avito.tools.avito_favorites]
+approval_mode = "auto"
+```
 
-The connection is successful only when a real ChatGPT web chat invokes
-`avito_selfcheck` and the intended read tools through the installed server and
-active tunnel. Tool discovery alone is not acceptance. Do not copy profile data,
-listing data, chat IDs, or private message contents into issue comments,
-screenshots, this document, or test fixtures. `avito_chat_messages` has the
-documented Avito-side read-state caveat.
+Keep the default approval mode for `avito_send_message`. Also keep it for
+`avito_chat_messages` unless the user accepts Avito's normal read-state effect:
+opening a conversation can mark it read even though the MCP itself does not
+send, edit, or delete a message.
+
+Restart the local client after saving the configuration. In the Codex terminal
+UI or desktop composer, `/mcp` should show the enabled `avito` server. Begin
+acceptance with `avito_selfcheck`, then use a normal language request such as
+“find three laptops under 70,000 roubles” or “show my current listings.” Do not
+put passwords, cookies, OAuth values, or browser-storage exports in the config.
+
+## Web ChatGPT route when the account UI permits it
+
+This is a runbook, not evidence that the route is enabled for a particular
+account:
+
+1. In the personal OpenAI Platform organization associated with the target
+   ChatGPT account, create or select an MCP tunnel. The account needs the
+   appropriate **Tunnels Read + Manage** permission to create/edit it and
+   **Tunnels Read + Use** to operate/select it.
+2. Associate that tunnel with both the personal Platform organization and the
+   target ChatGPT workspace. A personal organization by itself does not make a
+   tunnel appear in another workspace.
+3. Download the current `tunnel-client` from the OpenAI tunnel settings. Keep
+   its runtime API key in the operating-system secret store or a transient shell
+   environment only — never in this repository, an MCP config, a browser
+   profile, a screenshot, or a command history.
+4. Configure `tunnel-client` on this Mac to launch the absolute installed
+   `avito-personal-mcp` command over stdio. Validate with
+   `tunnel-client doctor --profile <profile> --explain`, then keep
+   `tunnel-client run --profile <profile>` healthy. Its local admin UI is a
+   loopback-only diagnostic surface.
+5. In ChatGPT on the web, enable developer mode if that setting is available.
+   At **Plugins**, create a developer-mode app, select **Tunnel**, and choose
+   the associated tunnel (or enter its `tunnel_id`).
+6. Start with `avito_selfcheck` and a deliberately small read-only request.
+   Tool discovery alone is not acceptance. A successful web acceptance means a
+   real ChatGPT web chat receives the result through the active tunnel and the
+   installed local MCP server.
+
+Do not expose CDP, change the server into a public listener, or put a browser
+session token into the tunnel configuration. If Developer Mode, tunnel creation,
+or the expected workspace association is absent, stop at that UI boundary and
+record the exact visible limitation; do not attempt a workaround.
+
+## Acceptance and privacy boundary
+
+For desktop, acceptance means the restarted client discovers `avito`, invokes
+`avito_selfcheck`, and completes the intended safe read tool through the
+installed package. For the web route, it additionally requires the active
+`tunnel-client` and a real developer-mode ChatGPT invocation.
+
+Do not place profile data, listing data, chat IDs, private message contents,
+runtime keys, or browser-session material in issues, logs, screenshots,
+fixtures, or this document. Never send a real message merely to test a
+connection.
 
 ## Official references
 
+- [MCP in Codex and the ChatGPT desktop app](https://learn.chatgpt.com/docs/extend/mcp)
 - [Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)
-- [Developer mode and MCP apps in ChatGPT](https://help.openai.com/en/articles/12584461-developer-mode-and-full-mcp-connectors-in-chatgpt)
